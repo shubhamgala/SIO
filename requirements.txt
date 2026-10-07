@@ -1,0 +1,17 @@
+# SIO Project — Python Dependencies
+# Install with: pip install -r requirements.txt
+# On Windows if pip is blocked: python -m pip install -r requirements.txt
+
+# ── Speech to Text (Module 1) ────────────────────────────
+openai-whisper          # OpenAI Whisper for multilingual speech-to-text transcription
+sounddevice             # Record live audio from the microphone
+scipy                   # Save and read WAV audio files
+numpy                   # Numerical array operations for audio processing
+imageio-ffmpeg          # Bundled ffmpeg binary (avoids system PATH dependency)
+
+# ── NLP / Intent Recognition (Module 2) ──────────────────
+transformers            # HuggingFace Transformers for IndicBERT model loading
+torch                   # PyTorch — required by both Whisper and Transformers
+tokenizers              # Fast tokenizer library used internally by Transformers
+huggingface-hub         # HuggingFace Hub client for downloading model checkpoints
+safetensors             # Safe model weight serialization format used by HuggingFace

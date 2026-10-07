@@ -1,0 +1,61 @@
+# ── Python ──────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+
+# ── Virtual environment ──────────────────────────────────
+venv/
+env/
+.env
+.venv/
+ENV/
+
+# ── Whisper temporary audio files ───────────────────────
+*.wav
+*.mp3
+*.ogg
+*.flac
+*.m4a
+
+# ── Whisper model cache (large binary files) ─────────────
+# Whisper downloads model weights automatically on first run.
+# Teammates should NOT commit the cached model files.
+~/.cache/whisper/
+whisper_cache/
+
+# ── HuggingFace / Transformers cache ────────────────────
+.cache/
+*.safetensors
+*.bin
+*.pt
+*.pth
+
+# ── OS / Editor junk ────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+.idea/
+.vscode/
+*.code-workspace
+
+# ── Qodo AI assistant files ──────────────────────────────
+.qodo/
+
+# ── Logs and temp output ────────────────────────────────
+*.log
+*.tmp
+*.temp
+tmp/
+temp/
+
+# ── Jupyter notebooks checkpoints ───────────────────────
+.ipynb_checkpoints/
+
+# ── Distribution / packaging ────────────────────────────
+dist/
+build/
+*.egg-info/

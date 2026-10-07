@@ -1,0 +1,5 @@
+# Module 3 — Banking Logic & Dialogue (coming soon)
+# This folder will contain: banking_logic.py
+# - Mock banking database (accounts, balances, transaction history)
+# - Voice confirmation flow for transfers
+# - Safe re-listen loop for yes/no responses
