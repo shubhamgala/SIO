@@ -137,3 +137,4 @@ python NLP/intent_recognition.py
 - **Whisper model** (~150 MB) is downloaded automatically on first run — no manual download needed
 - **IndicBERT** (`ai4bharat/indic-bert`) is a gated model. To use it: set `INDICBERT_LOCAL_PATH` in `NLP/intent_recognition.py` to your fine-tuned local folder
 - Every line in every file has a `#` comment explaining what it does — this is intentional for learning purposes
+

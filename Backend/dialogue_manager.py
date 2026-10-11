@@ -1,0 +1,397 @@
+# SIO Voice-First Banking Assistant - Module 3: Dialogue Manager                  # File title comment
+# This module sits between Module 2 (NLP) and future Module 4 (Banking Logic).  # Module position comment
+# It checks if all required info is collected, asks follow-up voice questions,   # Responsibility comment
+# reads back transaction details in Hindi, and waits for voice confirmation.     # Responsibility comment
+
+import os  # Import os module for file path and environment operations
+import sys  # Import sys module for runtime configuration and path management
+import re  # Import re module for regular expression text matching
+import time  # Import time module for small pauses between voice prompts
+import tempfile  # Import tempfile module to create secure temporary audio files
+import subprocess  # Import subprocess module to install missing packages via pip
+
+# Reconfigure stdout and stderr to UTF-8 so Hindi characters print correctly     # Description comment
+if hasattr(sys.stdout, 'reconfigure'):  # Check if stdout supports encoding reconfiguration
+    sys.stdout.reconfigure(encoding='utf-8')  # Set stdout to UTF-8 so Hindi prints without errors
+if hasattr(sys.stderr, 'reconfigure'):  # Check if stderr supports encoding reconfiguration
+    sys.stderr.reconfigure(encoding='utf-8')  # Set stderr to UTF-8 so error messages print correctly
+
+# Add project root to sys.path so STT and NLP modules can be imported cleanly   # Description comment
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # Add project root folder to path
+
+# ─── Dependency installer ────────────────────────────────────────────────────── #
+# Function to install a pip package if it is not already available               # Description comment
+def _install_package(package_name):  # Define helper function to auto-install a missing package
+    try:  # Start try block to test if the package is importable
+        __import__(package_name.replace('-', '_'))  # Try importing the package using its import name
+    except ImportError:  # Catch ImportError if the package is not installed
+        print(f"[SIO DM] Installing missing package '{package_name}'...")  # Inform user about auto-install
+        try:  # Start try block to run pip install via subprocess
+            subprocess.check_call([sys.executable, '-m', 'pip', 'install', package_name])  # Run pip install
+            print(f"[SIO DM] Package '{package_name}' installed successfully.")  # Confirm successful install
+        except Exception as pip_err:  # Catch any error during pip installation
+            print(f"[SIO DM] Warning: Could not install '{package_name}': {pip_err}")  # Print warning message
+
+# Ensure audio playback and TTS libraries are installed before importing them    # Description comment
+_install_package('gtts')  # Install Google Text-to-Speech library if missing
+_install_package('pygame')  # Install pygame for cross-platform audio playback
+
+# ─── Imports ─────────────────────────────────────────────────────────────────── #
+try:  # Start try block to import gTTS for Hindi text-to-speech conversion
+    from gtts import gTTS  # Import gTTS class to generate Hindi speech audio files
+    GTTS_AVAILABLE = True  # Mark gTTS as available for use
+except ImportError:  # Catch ImportError if gTTS could not be imported
+    GTTS_AVAILABLE = False  # Mark gTTS as unavailable, will fall back to print
+    print('[SIO DM] Warning: gTTS not available. Voice output will be text only.')  # Warn user
+
+try:  # Start try block to import pygame for audio playback
+    import pygame  # Import pygame for playing generated speech audio files
+    pygame.mixer.init()  # Initialize the pygame audio mixer subsystem
+    PYGAME_AVAILABLE = True  # Mark pygame as available for use
+except Exception as pg_err:  # Catch any error during pygame import or initialization
+    PYGAME_AVAILABLE = False  # Mark pygame as unavailable, will fall back to print
+    print(f'[SIO DM] Warning: pygame not available: {pg_err}. Audio playback disabled.')  # Warn user
+
+# ─── Intent slot requirements ─────────────────────────────────────────────────── #
+# Dictionary defining which entity slots are required for each banking intent    # Description comment
+# If a slot is missing the dialogue manager will ask a follow-up voice question  # Description comment
+REQUIRED_SLOTS = {  # Map each intent to the list of entity fields it needs before proceeding
+    'Fund Transfer':      ['recipient', 'amount'],  # Transfer needs both who to send to and how much
+    'Mobile Recharge':    ['amount'],  # Recharge only needs the amount (phone number assumed registered)
+    'Bill Payment':       ['bill_type'],  # Bill payment needs which bill type (electricity, water, gas)
+    'Balance Enquiry':    [],  # Balance check needs no extra information
+    'Transaction History': [],  # History request needs no extra information
+    'ATM Locator':        [],  # ATM search needs no extra information
+    'Help':               [],  # Help request needs no extra information
+}  # End of REQUIRED_SLOTS dictionary
+
+# ─── Follow-up question templates ─────────────────────────────────────────────── #
+# Hindi follow-up questions asked when a required entity slot is missing          # Description comment
+FOLLOWUP_QUESTIONS = {  # Map each missing slot to the Hindi voice question to ask
+    'recipient': 'Aap kisko paise bhejna chahte hain?',  # Ask who to send money to
+    'amount':    'Aap kitne rupaye bhejna chahte hain?',  # Ask how much money to send
+    'bill_type': 'Kaun sa bill bharna hai? Bijli, paani, ya gas?',  # Ask which bill type
+}  # End of FOLLOWUP_QUESTIONS dictionary
+
+# ─── Confirmation word sets ────────────────────────────────────────────────────── #
+# Words in Hindi, Hinglish and English that mean YES — confirm the transaction   # Description comment
+YES_WORDS = {  # Set of words across languages that indicate user confirmation
+    'haan', 'ha', 'han', 'yes', 'yeah', 'yep', 'yup', 'correct',  # Hindi, Hinglish, English yes words
+    'theek hai', 'bilkul', 'zaroor', 'confirm', 'ok', 'okay',  # Additional agreement words
+    'sahi', 'proceed', 'go ahead',  # Action confirmation words (karo removed — too ambiguous)
+}  # End of YES_WORDS set
+
+# Words in Hindi, Hinglish and English that mean NO — cancel the transaction     # Description comment
+NO_WORDS = {  # Set of words across languages that indicate user cancellation
+    'nahi', 'na', 'no', 'nope', 'cancel', 'naa', 'mat karo',  # Hindi, Hinglish, English no words
+    'rok do', 'band karo', 'stop', 'abort', 'mat', 'nahin',  # Additional cancellation words
+}  # End of NO_WORDS set
+
+# ─── Voice output ─────────────────────────────────────────────────────────────── #
+# Function to speak a Hindi text string aloud using gTTS and pygame              # Description comment
+def speak(text):  # Define function to convert Hindi text to speech and play it
+    print(f'[SIO DM] 🔊 {text}')  # Always print the text so it is visible even without audio
+    if not GTTS_AVAILABLE or not PYGAME_AVAILABLE:  # Check if audio output libraries are available
+        return  # Exit early and rely on printed text if audio is not available
+    tmp_path = None  # Initialize temporary file path variable to None
+    try:  # Start try block for TTS generation and audio playback
+        tts = gTTS(text=text, lang='hi', slow=False)  # Create Hindi TTS audio object from input text
+        with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:  # Create temp MP3 file
+            tmp_path = tmp.name  # Store the temporary file path for later playback and cleanup
+        tts.save(tmp_path)  # Save generated speech audio to the temporary MP3 file
+        pygame.mixer.music.load(tmp_path)  # Load the saved MP3 file into pygame audio mixer
+        pygame.mixer.music.play()  # Start playing the audio through the system speakers
+        while pygame.mixer.music.get_busy():  # Loop while audio is still playing
+            time.sleep(0.1)  # Wait 100ms before checking again to avoid busy-waiting
+        pygame.mixer.music.unload()  # Unload the audio file from memory after playback
+    except Exception as tts_err:  # Catch any error during TTS generation or playback
+        print(f'[SIO DM] Warning: Could not play voice: {tts_err}')  # Print warning if audio fails
+    finally:  # Always clean up the temporary MP3 file regardless of success or failure
+        if tmp_path and os.path.exists(tmp_path):  # Check if the temporary file exists on disk
+            try:  # Start try block for safe file deletion
+                os.remove(tmp_path)  # Delete the temporary MP3 audio file from disk
+            except OSError:  # Catch any OS error during file deletion
+                pass  # Silently ignore file cleanup errors
+
+# ─── Voice input (for follow-up questions) ────────────────────────────────────── #
+# Function to record a short voice response from the user via the microphone     # Description comment
+def listen_for_response(whisper_model, duration=5):  # Define function to record and transcribe short answer
+    try:  # Start try block for voice capture
+        from STT.whisper_stt import record_audio_to_wav, transcribe_audio, remove_temporary_file  # Import STT tools
+        wav_path = record_audio_to_wav()  # Record audio from the microphone (with 3-second countdown)
+        if not wav_path:  # Check if recording failed or microphone is unavailable
+            print('[SIO DM] Warning: Could not record audio for follow-up response.')  # Warn user
+            return None  # Return None to signal that no response was captured
+        try:  # Start inner try block to transcribe and clean up
+            text, lang = transcribe_audio(whisper_model, wav_path)  # Transcribe the recorded response
+            return text.strip() if text else None  # Return cleaned text or None if transcription was empty
+        finally:  # Ensure temporary audio file is always cleaned up
+            remove_temporary_file(wav_path)  # Delete the temporary WAV file from disk
+    except Exception as listen_err:  # Catch any unexpected error during voice capture
+        print(f'[SIO DM] Error during voice input: {listen_err}')  # Print error message
+        return None  # Return None so the dialogue can handle missing input gracefully
+
+# ─── Yes / No detection ───────────────────────────────────────────────────────── #
+# Function to interpret a spoken response as YES, NO, or UNKNOWN                # Description comment
+def detect_yes_no(text):  # Define function to classify a voice response as yes, no, or unknown
+    if not text:  # Check if the text is None or empty string
+        return 'unknown'  # Return unknown if no text was captured
+    lower = text.lower().strip()  # Convert to lowercase and strip whitespace for reliable matching
+    for word in YES_WORDS:  # Iterate through all known yes-words
+        if word in lower:  # Check if the yes-word appears anywhere in the spoken response
+            return 'yes'  # Return yes if any confirmation word is found
+    for word in NO_WORDS:  # Iterate through all known no-words
+        if word in lower:  # Check if the no-word appears anywhere in the spoken response
+            return 'no'  # Return no if any cancellation word is found
+    return 'unknown'  # Return unknown if neither yes nor no words were found
+
+# ─── Amount extractor for follow-up ──────────────────────────────────────────── #
+# Function to extract a numeric amount from a spoken follow-up answer            # Description comment
+def extract_amount_from_text(text):  # Define function to parse a number from free-form spoken text
+    if not text:  # Check if the text is None or empty
+        return None  # Return None if there is no text to parse
+    text_lower = text.lower()  # Convert text to lowercase for case-insensitive matching
+    # Replace common spoken Indian number words with their numeric equivalents   # Step comment
+    word_map = {  # Dictionary of spoken number words to digit strings
+        'ek sau': '100', 'do sau': '200', 'teen sau': '300', 'chaar sau': '400',  # Hindi hundreds
+        'paanch sau': '500', 'chhe sau': '600', 'saat sau': '700', 'aath sau': '800',  # Hindi hundreds
+        'nau sau': '900', 'ek hazaar': '1000', 'do hazaar': '2000', 'panch hazaar': '5000',  # Hindi thousands
+        'das hazaar': '10000', 'ek lakh': '100000', 'do lakh': '200000',  # Hindi large numbers
+    }  # End of word_map dictionary
+    for word, digit in word_map.items():  # Iterate through each word-to-digit mapping
+        text_lower = text_lower.replace(word, digit)  # Replace spoken word with its digit equivalent
+    matches = re.findall(r'\b\d[\d,]*\b', text_lower)  # Find all numeric patterns in processed text
+    if matches:  # Check if any numbers were found
+        cleaned = matches[0].replace(',', '')  # Remove comma separators from the first matched number
+        try:  # Start try block to safely convert string to integer
+            return int(cleaned)  # Return the integer value of the extracted amount
+        except ValueError:  # Catch error if string is not a valid integer
+            return None  # Return None if conversion fails
+    return None  # Return None if no numbers were found in the text
+
+# ─── Bill type extractor ──────────────────────────────────────────────────────── #
+# Function to detect which bill type the user mentions in their response         # Description comment
+def extract_bill_type_from_text(text):  # Define function to identify bill type from spoken text
+    if not text:  # Check if the text is None or empty
+        return None  # Return None if there is nothing to analyse
+    lower = text.lower()  # Convert text to lowercase for reliable keyword matching
+    if any(w in lower for w in ['bijli', 'electricity', 'light', 'current', 'electric']):  # Check electricity
+        return 'Electricity'  # Return electricity bill type if any electricity keyword is found
+    if any(w in lower for w in ['paani', 'water', 'jal']):  # Check water bill keywords
+        return 'Water'  # Return water bill type if any water keyword is found
+    if any(w in lower for w in ['gas', 'lpg', 'cylinder']):  # Check gas bill keywords
+        return 'Gas'  # Return gas bill type if any gas keyword is found
+    if any(w in lower for w in ['phone', 'mobile', 'recharge', 'internet', 'broadband']):  # Check telecom
+        return 'Phone'  # Return phone bill type if telecom keyword is found
+    return None  # Return None if no bill type could be detected
+
+# ─── Recipient extractor for follow-up ───────────────────────────────────────── #
+# Function to extract a recipient name from a follow-up voice response           # Description comment
+def extract_recipient_from_text(text):  # Define function to parse a recipient name from spoken text
+    if not text:  # Check if text is None or empty
+        return None  # Return None if there is no text to process
+    # Noise words to ignore when extracting name from a follow-up answer         # Comment
+    noise_words = {  # Set of common noise words that should not be treated as recipient names
+        'ko', 'को', 'bhejna', 'bhejiye', 'send', 'transfer', 'paise', 'rupaye',  # Transfer noise words
+        'chahta', 'chahti', 'hun', 'hoon', 'hai', 'mujhe', 'please', 'karo',  # Grammar noise words
+    }  # End of noise_words set
+    tokens = text.strip().split()  # Split the spoken response into individual word tokens
+    for token in tokens:  # Iterate through each word token
+        clean = re.sub(r'[^\w]', '', token)  # Remove any non-word characters from the token
+        if len(clean) >= 2 and clean.lower() not in noise_words:  # Check minimum length and not noise
+            return clean.capitalize()  # Return the cleaned token as the recipient name (capitalized)
+    return None  # Return None if no suitable name token was found
+
+# ─── Confirmation message builder ─────────────────────────────────────────────── #
+# Function to build a Hindi confirmation readback message from collected slots   # Description comment
+def build_confirmation_message(intent, entities):  # Define function to assemble Hindi confirmation text
+    if intent == 'Fund Transfer':  # Check if the intent is a fund transfer
+        recipient = entities.get('recipient', 'recipient')  # Get recipient name or fallback placeholder
+        amount = entities.get('amount', 0)  # Get transaction amount or fallback to zero
+        return f'Kya aap {recipient} ko {amount} rupaye bhejna chahte hain? Haan ya Nahi?'  # Build message
+    if intent == 'Mobile Recharge':  # Check if the intent is a mobile recharge
+        amount = entities.get('amount', 0)  # Get recharge amount or fallback to zero
+        return f'Kya aap {amount} rupaye ka mobile recharge karna chahte hain? Haan ya Nahi?'  # Build message
+    if intent == 'Bill Payment':  # Check if the intent is a bill payment
+        bill_type = entities.get('bill_type', 'bill')  # Get bill type or fallback placeholder
+        amount = entities.get('amount', '')  # Get amount if available for bill payment
+        amount_part = f'{amount} rupaye ka ' if amount else ''  # Build optional amount string
+        return f'Kya aap {amount_part}{bill_type} bill bharna chahte hain? Haan ya Nahi?'  # Build message
+    if intent == 'Balance Enquiry':  # Check if the intent is a balance enquiry
+        return 'Kya aap apna account balance check karna chahte hain? Haan ya Nahi?'  # Build message
+    if intent == 'Transaction History':  # Check if the intent is a transaction history request
+        return 'Kya aap apna transaction history dekhna chahte hain? Haan ya Nahi?'  # Build message
+    if intent == 'ATM Locator':  # Check if the intent is an ATM locator request
+        return 'Kya aap paas ka ATM dhundhna chahte hain? Haan ya Nahi?'  # Build message
+    if intent == 'Help':  # Check if the intent is a help request
+        return 'Kya aap customer care se baat karna chahte hain? Haan ya Nahi?'  # Build message
+    return 'Kya aap yeh kaam karna chahte hain? Haan ya Nahi?'  # Generic fallback confirmation message
+
+# ─── Core dialogue runner ─────────────────────────────────────────────────────── #
+# Main entry point: given NLP result, run the full dialogue to collect and confirm # Description comment
+def run_dialogue(nlp_result, whisper_model):  # Define the main dialogue loop function
+    """
+    Accepts the NLP result dictionary from Module 2 and the loaded Whisper model.
+    Returns a result dictionary with keys:
+        status   -> 'confirmed', 'cancelled', or 'error'
+        intent   -> final intent string
+        entities -> final collected entities dictionary
+        message  -> human-readable Hindi status message
+    """  # End of docstring
+    try:  # Start outer try block to catch any unexpected dialogue errors
+        intent = nlp_result.get('intent', 'Help')  # Extract classified intent from NLP result
+        entities = dict(nlp_result.get('entities', {}))  # Copy entities dict so we can modify it safely
+        confidence = nlp_result.get('confidence', 0.0)  # Extract confidence score from NLP result
+
+        print('=' * 70)  # Print top banner separator
+        print(f'[SIO DM] Intent detected : {intent} (confidence: {confidence})')  # Log detected intent
+        print(f'[SIO DM] Entities so far : {entities}')  # Log current entities before slot-filling
+        print('=' * 70)  # Print banner separator
+
+        # ── Step 1: Slot filling — collect any missing required information ── #
+        required = REQUIRED_SLOTS.get(intent, [])  # Retrieve list of required slots for this intent
+        for slot in required:  # Iterate through each required slot for the detected intent
+            if entities.get(slot):  # Check if this slot already has a value from Module 2
+                continue  # Skip to next slot if this one is already filled
+            # Slot is missing — ask the user a follow-up voice question             # Comment
+            question = FOLLOWUP_QUESTIONS.get(slot, f'Please provide your {slot}.')  # Get follow-up question
+            print(f'\n[SIO DM] Missing slot: "{slot}" — asking follow-up question...')  # Log missing slot
+            speak(question)  # Speak the follow-up question aloud in Hindi
+            print('[SIO DM] Listening for your answer...')  # Inform user we are listening
+            response_text = listen_for_response(whisper_model)  # Record and transcribe user's spoken answer
+            if not response_text:  # Check if no voice response was captured
+                speak('Maafi kijiye, mujhe aapki awaaz sunai nahi di. Kripya dobara bolein.')  # Apology
+                response_text = listen_for_response(whisper_model)  # Give user one more attempt
+            if not response_text:  # Check again if still no response after second attempt
+                speak('Koi jawab nahi mila. Yeh kaam cancel kar rahe hain.')  # Announce cancellation
+                return {  # Return cancellation result dictionary
+                    'status': 'cancelled',  # Mark status as cancelled
+                    'intent': intent,  # Include the detected intent
+                    'entities': entities,  # Include whatever entities were collected so far
+                    'message': 'No voice response received for follow-up question.',  # Error description
+                }  # End of cancellation return
+            print(f'[SIO DM] Follow-up response heard: "{response_text}"')  # Log transcribed follow-up
+            # Extract the relevant entity value from the follow-up response       # Comment
+            if slot == 'recipient':  # Check if we are filling the recipient slot
+                extracted_value = extract_recipient_from_text(response_text)  # Extract name from answer
+            elif slot == 'amount':  # Check if we are filling the amount slot
+                extracted_value = extract_amount_from_text(response_text)  # Extract number from answer
+            elif slot == 'bill_type':  # Check if we are filling the bill type slot
+                extracted_value = extract_bill_type_from_text(response_text)  # Extract bill type
+            else:  # For any unrecognized slot type
+                extracted_value = response_text.strip()  # Use raw response text as fallback value
+            if extracted_value:  # Check if a value was successfully extracted from the response
+                entities[slot] = extracted_value  # Store the extracted value into the entities dictionary
+                print(f'[SIO DM] Slot "{slot}" filled with: {extracted_value}')  # Log filled slot
+            else:  # If extraction failed to find a usable value
+                speak(f'Maafi kijiye, yeh samajh nahi aaya. Kripya dobara bolein.')  # Ask user to repeat
+                second_response = listen_for_response(whisper_model)  # Record second attempt
+                if slot == 'recipient':  # Check slot type for second extraction attempt
+                    extracted_value = extract_recipient_from_text(second_response)  # Try extracting again
+                elif slot == 'amount':  # Check slot type for second extraction attempt
+                    extracted_value = extract_amount_from_text(second_response)  # Try extracting again
+                elif slot == 'bill_type':  # Check slot type for second extraction attempt
+                    extracted_value = extract_bill_type_from_text(second_response)  # Try extracting again
+                else:  # For unrecognized slot on second attempt
+                    extracted_value = second_response.strip() if second_response else None  # Use raw text
+                if extracted_value:  # Check if second extraction attempt succeeded
+                    entities[slot] = extracted_value  # Store the extracted value into entities
+                    print(f'[SIO DM] Slot "{slot}" filled on second attempt: {extracted_value}')  # Log
+                else:  # If still no value after two attempts
+                    speak('Yeh jaankari nahi mili. Kaam cancel kar rahe hain.')  # Announce failure
+                    return {  # Return cancellation result dictionary
+                        'status': 'cancelled',  # Mark status as cancelled
+                        'intent': intent,  # Include the detected intent
+                        'entities': entities,  # Include what was collected
+                        'message': f'Could not extract value for required slot: {slot}',  # Error message
+                    }  # End of cancellation return
+
+        # ── Step 2: Read back complete details and ask for confirmation ──────── #
+        print('\n[SIO DM] All required slots filled. Building confirmation...')  # Log slot completion
+        confirmation_msg = build_confirmation_message(intent, entities)  # Build Hindi confirmation sentence
+        print(f'[SIO DM] Confirmation prompt: {confirmation_msg}')  # Log confirmation message text
+        speak(confirmation_msg)  # Speak the full confirmation message aloud to the user
+
+        # ── Step 3: Listen for Haan (yes) or Nahi (no) from the user ────────── #
+        max_confirmation_attempts = 2  # Allow user up to 2 attempts to confirm or cancel
+        for attempt in range(max_confirmation_attempts):  # Loop for up to 2 confirmation attempts
+            print(f'[SIO DM] Listening for confirmation (attempt {attempt + 1})...')  # Log attempt number
+            confirm_text = listen_for_response(whisper_model)  # Record user's confirmation response
+            print(f'[SIO DM] Confirmation response heard: "{confirm_text}"')  # Log what was heard
+            decision = detect_yes_no(confirm_text)  # Classify response as yes, no, or unknown
+            if decision == 'yes':  # Check if user confirmed the transaction
+                speak('Theek hai! Aapka kaam ho raha hai.')  # Acknowledge and proceed with Hindi voice
+                print('\n[SIO DM] ✅ User CONFIRMED. Proceeding to banking action.')  # Log confirmation
+                return {  # Return confirmed result dictionary
+                    'status': 'confirmed',  # Mark status as confirmed
+                    'intent': intent,  # Include the final intent
+                    'entities': entities,  # Include all collected entities
+                    'message': 'User confirmed. Ready for banking action.',  # Success message
+                }  # End of confirmed return
+            elif decision == 'no':  # Check if user cancelled the transaction
+                speak('Theek hai, yeh kaam cancel kar diya gaya hai.')  # Acknowledge cancellation
+                print('\n[SIO DM] ❌ User CANCELLED. Aborting transaction.')  # Log cancellation
+                return {  # Return cancelled result dictionary
+                    'status': 'cancelled',  # Mark status as cancelled
+                    'intent': intent,  # Include the intent that was cancelled
+                    'entities': entities,  # Include entities that were collected
+                    'message': 'User cancelled the transaction.',  # Cancellation message
+                }  # End of cancelled return
+            else:  # If the response was neither yes nor no
+                if attempt < max_confirmation_attempts - 1:  # Check if we have more attempts left
+                    speak('Kripya Haan ya Nahi bolein.')  # Ask user to say yes or no clearly
+                else:  # If this was the final attempt and still unclear
+                    speak('Koi jawab nahi mila. Kaam cancel kar rahe hain.')  # Announce timeout
+        # Fell through all attempts without a clear yes or no                    # Comment
+        return {  # Return cancelled result due to timeout
+            'status': 'cancelled',  # Mark status as cancelled
+            'intent': intent,  # Include the intent
+            'entities': entities,  # Include collected entities
+            'message': 'Confirmation timed out after 2 attempts.',  # Timeout message
+        }  # End of timeout return
+
+    except Exception as dialogue_err:  # Catch any unexpected error in the dialogue flow
+        print(f'[SIO DM] Error in dialogue manager: {dialogue_err}')  # Log the error message
+        return {  # Return error result dictionary
+            'status': 'error',  # Mark status as error
+            'intent': nlp_result.get('intent', 'Unknown'),  # Include intent if available
+            'entities': nlp_result.get('entities', {}),  # Include entities if available
+            'message': f'Dialogue error: {dialogue_err}',  # Include error description
+        }  # End of error return
+
+# ─── Standalone test runner ───────────────────────────────────────────────────── #
+# Test the dialogue manager directly without running the full pipeline           # Description comment
+def run_test():  # Define function to test the dialogue manager in isolation
+    print('=' * 70)  # Print top banner border
+    print('  SIO — Module 3: Dialogue Manager Test  ')  # Print test title banner
+    print('=' * 70)  # Print banner separator
+
+    from STT.whisper_stt import load_whisper_model  # Import Whisper model loader for voice input
+    print('[SIO DM Test] Loading Whisper model...')  # Log model loading
+    whisper_model = load_whisper_model()  # Load the Whisper model for speech recognition
+    if not whisper_model:  # Check if Whisper model failed to load
+        print('[SIO DM Test] Error: Could not load Whisper model. Exiting test.')  # Log error
+        return  # Exit test if model is unavailable
+
+    # Simulate a Fund Transfer NLP result with only recipient filled             # Test description
+    simulated_nlp_result = {  # Build a mock NLP result as Module 2 would return
+        'intent': 'Fund Transfer',  # Simulate Fund Transfer intent
+        'confidence': 0.85,  # Simulate medium-high confidence
+        'entities': {  # Simulate partial entities — recipient present but amount missing
+            'amount': None,  # Amount is missing — dialogue manager should ask for it
+            'recipient': 'Raju',  # Recipient is already known from speech
+        },  # End of entities
+        'engine': 'Test Simulation',  # Mark as test simulation
+    }  # End of simulated NLP result
+
+    print(f'\n[SIO DM Test] Simulated NLP result: {simulated_nlp_result}')  # Print test input
+    result = run_dialogue(simulated_nlp_result, whisper_model)  # Run dialogue manager with mock input
+    print('\n[SIO DM Test] Final Dialogue Result:')  # Print result header
+    print(f'  Status  : {result["status"]}')  # Print final status (confirmed / cancelled / error)
+    print(f'  Intent  : {result["intent"]}')  # Print final intent
+    print(f'  Entities: {result["entities"]}')  # Print all collected entities
+    print(f'  Message : {result["message"]}')  # Print result message
+    print('=' * 70)  # Print footer border
+
+if __name__ == '__main__':  # Check if script is run directly from command line
+    run_test()  # Run the standalone dialogue manager test
