@@ -60,67 +60,85 @@ configure_ffmpeg_path()  # Run ffmpeg configuration helper before using Whisper
 MODEL_NAME = "base"  # Whisper model size ("base" for fast speed, "small" for maximum accuracy)
 SAMPLE_RATE = 16000  # Set audio sample rate to 16000 Hz as expected by OpenAI Whisper
 DURATION = 5  # Set recording duration to 5 seconds as requested
-# Function to verify whether an audio input device (microphone) is available    # Description comment
-def check_microphone_availability():  # Define function to check for microphone hardware
-    try:  # Start try block to query audio devices
-        devices = sd.query_devices()  # Retrieve list of all audio devices on the system
-        input_devices = [d for d in devices if d.get('max_input_channels', 0) > 0]  # Filter input devices
-        if not input_devices:  # Check if list of input devices is empty
-            print("[SIO STT] Error: No microphone input device found on this system.")  # Print error message
-            print("[SIO STT] Please connect a microphone or headset and try again.")  # Print guidance
-            return None  # Return None indicating no microphone was found
-        default_input = sd.query_devices(kind='input')  # Query the default recording device
-        print(f"[SIO STT] Microphone detected: {default_input.get('name', 'Default Microphone')}")  # Print name
-        return default_input  # Return default input device details
-    except Exception as mic_error:  # Catch any audio hardware query errors
-        print(f"[SIO STT] Error detecting microphone: {mic_error}")  # Print detailed error message
-        print("[SIO STT] Please check your audio drivers and microphone permissions.")  # Print guidance
-        return None  # Return None indicating microphone check failed
-# Function to record 5 seconds of audio and save it to a temporary WAV file      # Description comment
+# Function to scan all input devices and return the one with the strongest signal # Description comment
+# This auto-picks headsets / earphones over silent built-in mics automatically  # Description comment
+def find_best_input_device():  # Define function to detect the best available microphone
+    try:  # Start try block to enumerate audio devices
+        all_devices = sd.query_devices()  # Retrieve the complete list of audio devices
+        best_device_id = None  # Initialize best device ID to None
+        best_peak = -1.0  # Initialize best peak level to -1 so any signal beats it
+        print("[SIO STT] Scanning microphones to find the best one...")  # Inform user of scan
+        for idx, dev in enumerate(all_devices):  # Loop through every detected audio device
+            if dev.get('max_input_channels', 0) < 1:  # Skip devices with no input channels
+                continue  # Move to the next device
+            try:  # Start try block to briefly record from this device
+                channels = min(1, dev['max_input_channels'])  # Use mono recording for quick test
+                test_rate = 16000  # Use 16000 Hz for the quick test burst
+                snippet = sd.rec(  # Record a 0.5 second test snippet from this device
+                    int(0.5 * test_rate),  # Number of samples for 0.5 seconds
+                    samplerate=test_rate,  # Sample rate for the test
+                    channels=channels,  # Number of channels
+                    dtype='float32',  # Float32 format for amplitude measurement
+                    device=idx  # Specify the device index being tested
+                )  # End of rec call
+                sd.wait()  # Wait for the short test recording to complete
+                peak = float(np.max(np.abs(snippet)))  # Measure peak amplitude of test recording
+                if peak > best_peak:  # Check if this device is louder than the current best
+                    best_peak = peak  # Update the best peak value
+                    best_device_id = idx  # Update the best device ID
+            except Exception:  # Catch any error opening this particular device
+                continue  # Skip to the next device silently
+        if best_device_id is not None:  # Check if any usable device was found
+            chosen = all_devices[best_device_id]  # Get the chosen device details
+            print(f"[SIO STT] Best microphone: [{best_device_id}] {chosen['name']} (peak={best_peak:.5f})")  # Log
+            return best_device_id, chosen  # Return device ID and device info dictionary
+        print("[SIO STT] Error: No working microphone found. Please connect a headset.")  # Error message
+        return None, None  # Return None if no device found
+    except Exception as scan_err:  # Catch any unexpected error during device scanning
+        print(f"[SIO STT] Error scanning microphones: {scan_err}")  # Log the error
+        return None, None  # Return None on error
+# Function to record 5 seconds of audio using the best available microphone     # Description comment
 def record_audio_to_wav():  # Define function to record audio and save as temporary WAV
-    mic_info = check_microphone_availability()  # Verify microphone availability before recording
-    if mic_info is None:  # Check if microphone is missing or unavailable
-        return None  # Return None if microphone is not available
+    device_id, mic_info = find_best_input_device()  # Auto-detect the best microphone to use
+    if mic_info is None:  # Check if no working microphone was found
+        print("[SIO STT] Error: Cannot record — no working microphone detected.")  # Print error
+        return None  # Return None if no microphone is available
     temp_wav_path = None  # Initialize variable to store temporary WAV file path
     try:  # Start try block for audio recording and file creation
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:  # Create temporary file
             temp_wav_path = temp_file.name  # Store absolute path of the temporary file
-        channels_to_record = min(2, mic_info.get('max_input_channels', 1))  # Capture stereo if array to prevent blank channels
+        channels_to_record = 1  # Use mono recording for full compatibility with Whisper
         print("[SIO STT] Get ready to speak in:")  # Give user a visual countdown prompt
         for count in range(3, 0, -1):  # Loop through 3 second countdown numbers
             print(f"[SIO STT]   {count}...")  # Display countdown second
             time.sleep(1)  # Pause for 1 second per countdown count
-        print(f"[SIO STT] >>> SPEAK NOW! (Hindi / English / Hinglish for {DURATION}s) <<<")  # Prompt user to speak
-        raw_audio = sd.rec(int(DURATION * SAMPLE_RATE), samplerate=SAMPLE_RATE, channels=channels_to_record, dtype='float32')  # Record
-        sd.wait()  # Wait for the full 5 seconds of recording to complete
+        print(f"[SIO STT] >>> SPEAK NOW! (Hindi / English / Hinglish for {DURATION}s) <<<")  # Prompt user
+        raw_audio = sd.rec(  # Record audio from the best detected microphone device
+            int(DURATION * SAMPLE_RATE),  # Total number of samples to record
+            samplerate=SAMPLE_RATE,  # Sample rate in Hz expected by Whisper
+            channels=channels_to_record,  # Number of channels (1 = mono)
+            dtype='float32',  # Data type for audio samples
+            device=device_id  # Use the best detected microphone device ID
+        )  # End of rec call
+        sd.wait()  # Wait for the full recording duration to complete
         print("[SIO STT] Recording finished! Processing audio...")  # Notify user recording has completed
-        if channels_to_record > 1:  # Check if multi-channel audio was recorded
-            peak_ch0 = float(np.max(np.abs(raw_audio[:, 0])))  # Measure peak audio amplitude on first channel
-            peak_ch1 = float(np.max(np.abs(raw_audio[:, 1])))  # Measure peak audio amplitude on second channel
-            if peak_ch1 > (peak_ch0 * 2.0):  # Check if channel 1 has significantly stronger signal than channel 0
-                mono_audio = raw_audio[:, 1]  # Select channel 1 as primary audio channel
-            elif peak_ch0 > (peak_ch1 * 2.0):  # Check if channel 0 has significantly stronger signal than channel 1
-                mono_audio = raw_audio[:, 0]  # Select channel 0 as primary audio channel
-            else:  # If both channels have balanced signal
-                mono_audio = np.mean(raw_audio, axis=1)  # Average both channels into a single mono audio channel
-        else:  # If recorded with single channel
-            mono_audio = raw_audio.flatten()  # Flatten single channel array into 1D audio array
-        peak_volume = float(np.max(np.abs(mono_audio)))  # Calculate peak audio amplitude across the entire recording
-        if peak_volume < 0.005:  # Check if volume is extremely low suggesting muted or distant microphone
-            print("[SIO STT] Notice: Audio signal was very faint. Speaking louder or closer to mic is recommended.")  # Warn user
-        if peak_volume > 0.001:  # Check if there is enough sound signal to perform normalization
-            mono_audio = (mono_audio / peak_volume) * 0.95  # Normalize audio amplitude to 95 percent of full dynamic range
-        int16_audio = (mono_audio * 32767.0).astype(np.int16)  # Convert normalized float32 samples to 16-bit PCM format
-        wavfile.write(temp_wav_path, SAMPLE_RATE, int16_audio)  # Save 16-bit PCM audio samples to temporary WAV file
+        mono_audio = raw_audio.flatten()  # Flatten mono audio array into 1D
+        peak_volume = float(np.max(np.abs(mono_audio)))  # Calculate peak amplitude of the recording
+        if peak_volume < 0.005:  # Check if audio is extremely quiet
+            print("[SIO STT] Notice: Audio signal was very faint. Please speak louder or closer.")  # Warn
+        if peak_volume > 0.001:  # Check if enough signal exists to normalize
+            mono_audio = (mono_audio / peak_volume) * 0.95  # Normalize amplitude to 95% of full range
+        int16_audio = (mono_audio * 32767.0).astype(np.int16)  # Convert float32 samples to 16-bit PCM
+        wavfile.write(temp_wav_path, SAMPLE_RATE, int16_audio)  # Save PCM audio to temporary WAV file
         print(f"[SIO STT] Audio saved temporarily at: {temp_wav_path}")  # Log temporary file path
-        return temp_wav_path  # Return path of saved temporary WAV file
-    except Exception as record_error:  # Catch any error occurring during recording or saving
-        print(f"[SIO STT] Error during audio recording: {record_error}")  # Print recording error message
-        if temp_wav_path and os.path.exists(temp_wav_path):  # Check if temporary file exists on error
-            try:  # Start try block for cleaning up incomplete file
-                os.remove(temp_wav_path)  # Delete incomplete temporary WAV file
-            except OSError:  # Catch any OS error during cleanup
-                pass  # Ignore file cleanup error
+        return temp_wav_path  # Return path of saved WAV file
+    except Exception as record_error:  # Catch any error during recording or saving
+        print(f"[SIO STT] Error during audio recording: {record_error}")  # Print error message
+        if temp_wav_path and os.path.exists(temp_wav_path):  # Check if partial file exists
+            try:  # Start try block for cleanup
+                os.remove(temp_wav_path)  # Delete the incomplete temporary file
+            except OSError:  # Catch cleanup errors
+                pass  # Ignore cleanup errors silently
         return None  # Return None indicating recording failed
 # Function to load OpenAI Whisper base model with graceful error handling        # Description comment
 def load_whisper_model():  # Define function to load the Whisper model
