@@ -19,3 +19,4 @@ safetensors             # Safe model weight serialization format used by Hugging
 # ── Dialogue Manager / Voice Output (Module 3) ───────────
 gtts                    # Google Text-to-Speech — converts Hindi text to spoken MP3 audio
 pygame-ce               # pygame Community Edition — cross-platform audio playback for TTS output
+

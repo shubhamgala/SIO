@@ -245,8 +245,17 @@ def run_dialogue(nlp_result, whisper_model):  # Define the main dialogue loop fu
 
         print('=' * 70)  # Print top banner separator
         print(f'[SIO DM] Intent detected : {intent} (confidence: {confidence})')  # Log detected intent
-        print(f'[SIO DM] Entities so far : {entities}')  # Log current entities before slot-filling
         print('=' * 70)  # Print banner separator
+
+        # ── Step 0: Handle unrecognised or low-confidence intent ───────────── #
+        if intent == 'Unknown' or confidence < 0.35:  # Check if intent was not recognized or confidence too low
+            speak('Maafi kijiye, mujhe aapki baat samajh nahi aayi. Kripya dobara bolein.')  # Speak apology
+            return {  # Return cancelled result safely
+                'status': 'cancelled',  # Mark status as cancelled
+                'intent': 'Unknown',  # Set intent as Unknown
+                'entities': entities,  # Retain collected entities
+                'message': 'Intent not recognized. Please speak your banking request clearly.',  # Message
+            }  # End of return dictionary
 
         # ── Step 1: Slot filling — collect any missing required information ── #
         required = REQUIRED_SLOTS.get(intent, [])  # Retrieve list of required slots for this intent
