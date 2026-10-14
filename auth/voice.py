@@ -26,26 +26,27 @@ def _speaker_classifier() -> EncoderClassifier:  # Define model loader
     )  # End of loader
 
 
-def extract_voice_embedding(audio_path: str) -> np.ndarray:
+import soundfile as sf  # Import soundfile for reliable cross-platform audio reading
+
+def extract_voice_embedding(audio_path: str) -> np.ndarray:  # Define voice embedding extractor function
     """Load audio and return its ECAPA speaker embedding as a NumPy array."""
-    waveform, sample_rate = torchaudio.load(audio_path)
-    if waveform.ndim != 2 or waveform.shape[0] == 0 or waveform.shape[1] == 0:
-        raise ValueError(f"Audio file contains no usable samples: {audio_path}")
-
-    duration_seconds = waveform.shape[1] / sample_rate
-    if duration_seconds < 1.0:
-        raise ValueError(
-            f"Audio must be at least 1 second long; got {duration_seconds:.2f} seconds"
-        )
-
-    # The speaker model expects mono audio. Average channels before resampling.
-    waveform = waveform.mean(dim=0, keepdim=True)
-    if sample_rate != _SAMPLE_RATE:
-        waveform = torchaudio.functional.resample(waveform, sample_rate, _SAMPLE_RATE)
-
-    with torch.inference_mode():
-        embedding = _speaker_classifier().encode_batch(waveform)
-    return embedding.squeeze().detach().cpu().numpy().astype(np.float32)
+    data, sample_rate = sf.read(audio_path, dtype='float32')  # Read WAV audio samples using soundfile
+    waveform = torch.from_numpy(data)  # Convert float32 numpy array to PyTorch tensor
+    if waveform.ndim == 1:  # Check if audio is single-channel mono
+        waveform = waveform.unsqueeze(0)  # Add channel dimension to make tensor 2D
+    else:  # If multi-channel audio
+        waveform = waveform.transpose(0, 1)  # Transpose shape to (channels, time)
+    if waveform.shape[0] == 0 or waveform.shape[1] == 0:  # Validate that audio is non-empty
+        raise ValueError(f"Audio file contains no usable samples: {audio_path}")  # Raise error
+    duration_seconds = waveform.shape[1] / sample_rate  # Calculate duration in seconds
+    if duration_seconds < 1.0:  # Ensure speech sample is at least 1 second long
+        raise ValueError(f"Audio must be at least 1 second long; got {duration_seconds:.2f} seconds")  # Raise error
+    waveform = waveform.mean(dim=0, keepdim=True)  # Average channels to mono
+    if sample_rate != _SAMPLE_RATE:  # Check if sample rate differs from target 16kHz
+        waveform = torchaudio.functional.resample(waveform, sample_rate, _SAMPLE_RATE)  # Resample to 16kHz
+    with torch.inference_mode():  # Disable autograd for fast inference
+        embedding = _speaker_classifier().encode_batch(waveform)  # Compute 192-d speaker vector
+    return embedding.squeeze().detach().cpu().numpy().astype(np.float32)  # Return numpy float32 embedding
 
 
 def enroll_voice(user_id: str, audio_paths: list[str]) -> bool:
