@@ -105,32 +105,49 @@ def run_live_voice_test():  # Define live mic voice test function
 
 # ── Mode 3: Live Webcam Session Monitor Check ──────────────────────────────────── #
 def run_live_webcam_test():  # Define live webcam monitor function
-    print("\n" + "=" * 68)  # Banner border
-    print("  SECURITY DEMO 3: Continuous Webcam Face Session Monitor")  # Title
-    print("=" * 68)  # Banner border
-    try:  # Try importing face monitor
-        from auth.face import FaceSessionMonitor  # Import monitor class
-    except Exception as err:  # Handle error
-        print(f" [Error] Could not initialize face monitor: {err}")  # Print error
+    print("\n" + "=" * 68, flush=True)  # Banner border
+    print("  SECURITY DEMO 3: Continuous Webcam Face Session Monitor", flush=True)  # Title
+    print("=" * 68, flush=True)  # Banner border
+    try:  # Try importing face monitor and enroll functions
+        import cv2  # Import OpenCV library
+        from auth.face import FaceSessionMonitor, enroll_face_from_frame  # Import monitor class and frame enroll helper
+    except Exception as err:  # Handle import errors
+        print(f" [Error] Could not initialize face module: {err}", flush=True)  # Print error
         return  # Exit
-    print(" Starting webcam monitor for 15 seconds...")  # Inform user
-    print(" • Look directly at the webcam -> Session stays ACTIVE")  # Instructions
-    print(" • Turn away or cover camera  -> 'FACE LOST' warning triggers after 5s")  # Instructions
-    print("-" * 68)  # Divider
-    def on_lost():  # Define callback for lost face
-        print(" ⚠️  [SECURITY EVENT] FACE LOST! User has stepped away from screen.", flush=True)  # Alert
-    monitor = FaceSessionMonitor(user_id="user1", source=0, on_face_lost=on_lost)  # Create monitor
-    monitor.start()  # Start monitoring thread
+    cap = cv2.VideoCapture(0)  # Open system default webcam device
+    if not cap.isOpened():  # Check if webcam opened successfully
+        print(" [Error] Could not access webcam. Check camera permissions in Windows settings.", flush=True)  # Error
+        return  # Exit early
+    print(" Looking for your face in webcam to enroll session user...", flush=True)  # User prompt
+    enrolled = False  # Track enrollment state
+    for _ in range(40):  # Check webcam frames for up to 2 seconds
+        ret, frame = cap.read()  # Capture single frame
+        if ret and frame is not None:  # Check frame validity
+            if enroll_face_from_frame("user1", frame):  # Attempt face detection and enrollment
+                enrolled = True  # Mark enrolled
+                break  # Stop search once enrolled
+        time.sleep(0.05)  # Wait 50ms between frame reads
+    if not enrolled:  # Check if no face was found
+        print(" ⚠️ Notice: No face detected yet. Look straight at the camera.", flush=True)  # Notify user
+    else:  # Face detected and enrolled
+        print(" ✅ Face enrolled! Starting continuous 15-second session monitoring...", flush=True)  # Confirm
+    print(" • Look at camera -> Session remains ACTIVE", flush=True)  # Instructions
+    print(" • Turn away or cover camera -> 'FACE LOST' triggers after 5 seconds", flush=True)  # Instructions
+    print("-" * 68, flush=True)  # Divider
+    def on_lost():  # Define callback for lost face event
+        print("\n ⚠️  [SECURITY EVENT] FACE LOST! User has stepped away from screen.", flush=True)  # Alert message
+    monitor = FaceSessionMonitor(user_id="user1", source=cap, on_face_lost=on_lost)  # Create monitor instance
+    monitor.start()  # Launch background monitoring thread
     try:  # Monitor for 15 seconds
-        for sec in range(15, 0, -1):  # Countdown loop
+        for sec in range(15, 0, -1):  # Countdown timer loop
             time.sleep(1)  # Sleep 1 second
-            print(f" Monitoring session... {sec}s remaining", end="\r", flush=True)  # Status countdown
-        print("\n Monitoring period completed.")  # Completed notice
-    except KeyboardInterrupt:  # Allow early Ctrl+C exit
-        print("\n Monitoring interrupted by user.")  # Interrupted notice
-    finally:  # Ensure monitor is stopped
-        monitor.stop()  # Stop background thread and release webcam
-        print(" Webcam released cleanly.\n")  # Cleanup confirmation
+            print(f" Monitoring active session... {sec}s remaining ", end="\r", flush=True)  # Status update
+        print("\n Monitoring period completed.", flush=True)  # Completed notice
+    except KeyboardInterrupt:  # Allow manual Ctrl+C termination
+        print("\n Monitoring interrupted by user.", flush=True)  # Interrupted notice
+    finally:  # Ensure monitor is stopped cleanly
+        monitor.stop()  # Terminate monitor thread and release webcam
+        print(" Webcam released cleanly.\n", flush=True)  # Cleanup confirmation
 
 # ── Main Interactive Menu ──────────────────────────────────────────────────────── #
 def main():  # Define main launcher

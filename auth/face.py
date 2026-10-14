@@ -130,34 +130,43 @@ def enroll_face(user_id: str, image_paths: list[str]) -> bool:
     return True
 
 
-def verify_face(
-    user_id: str,
-    image_path_or_frame: str | np.ndarray,
-    config: AuthConfig | None = None,
-) -> tuple[bool, float]:
+def enroll_face_from_frame(user_id: str, frame: np.ndarray) -> bool:  # Define frame face enroll helper
+    """Extract face embedding from an active camera frame and enroll the user."""
+    embedding = _extract_face_embedding_from_frame(frame)  # Extract SFace embedding from frame
+    if embedding is None:  # Check if no face detected in frame
+        return False  # Return failure
+    save_embedding(user_id, "face", embedding.astype(np.float32))  # Save embedding vector
+    return True  # Return success
+
+def verify_face(  # Define face verification function
+    user_id: str,  # User identifier to verify
+    image_path_or_frame: str | np.ndarray,  # Input image path or numpy frame
+    config: AuthConfig | None = None,  # Biometric configuration parameters
+) -> tuple[bool, float]:  # Returns tuple of (matched_bool, similarity_score)
     """Compare an image or BGR frame with the user's enrolled face embedding."""
-    if isinstance(image_path_or_frame, (str, Path)):
-        embedding = extract_face_embedding(str(image_path_or_frame))
-    elif isinstance(image_path_or_frame, np.ndarray):
-        embedding = _extract_face_embedding_from_frame(image_path_or_frame)
-    else:
-        raise TypeError("image_path_or_frame must be a file path or a NumPy BGR frame")
-
-    if embedding is None:
-        return False, 0.0
-
-    enrolled_embedding = np.asarray(load_embedding(user_id, "face"), dtype=np.float32).reshape(-1)
-    candidate_embedding = np.asarray(embedding, dtype=np.float32).reshape(-1)
-    if enrolled_embedding.shape != candidate_embedding.shape:
-        raise ValueError("Enrolled and candidate face embeddings have different shapes")
-    denominator = float(np.linalg.norm(enrolled_embedding) * np.linalg.norm(candidate_embedding))
-    similarity = (
-        float(np.dot(enrolled_embedding, candidate_embedding) / denominator)
-        if denominator > 0
-        else 0.0
-    )
-    active_config = config or AuthConfig()
-    return similarity >= active_config.face_similarity_threshold, similarity
+    if isinstance(image_path_or_frame, (str, Path)):  # Check if file path
+        embedding = extract_face_embedding(str(image_path_or_frame))  # Extract embedding from file
+    elif isinstance(image_path_or_frame, np.ndarray):  # Check if numpy array frame
+        embedding = _extract_face_embedding_from_frame(image_path_or_frame)  # Extract embedding from frame
+    else:  # Unrecognized input type
+        raise TypeError("image_path_or_frame must be a file path or a NumPy BGR frame")  # Error
+    if embedding is None:  # Check if no face was found in input
+        return False, 0.0  # Return unverified
+    try:  # Try loading enrolled face embedding
+        enrolled_embedding = np.asarray(load_embedding(user_id, "face"), dtype=np.float32).reshape(-1)  # Load vector
+    except (FileNotFoundError, OSError):  # Catch error if user is not enrolled yet
+        return False, 0.0  # Return unverified without crashing
+    candidate_embedding = np.asarray(embedding, dtype=np.float32).reshape(-1)  # Candidate vector
+    if enrolled_embedding.shape != candidate_embedding.shape:  # Shape compatibility check
+        raise ValueError("Enrolled and candidate face embeddings have different shapes")  # Error
+    denominator = float(np.linalg.norm(enrolled_embedding) * np.linalg.norm(candidate_embedding))  # Norm product
+    similarity = (  # Calculate cosine similarity
+        float(np.dot(enrolled_embedding, candidate_embedding) / denominator)  # Normalized dot product
+        if denominator > 0  # Avoid zero division
+        else 0.0  # Fallback to zero
+    )  # End of similarity calculation
+    active_config = config or AuthConfig()  # Resolve configuration
+    return similarity >= active_config.face_similarity_threshold, similarity  # Return match flag and score
 
 
 class FaceSessionMonitor:
