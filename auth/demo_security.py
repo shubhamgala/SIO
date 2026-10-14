@@ -110,6 +110,7 @@ def run_live_webcam_test():  # Define live webcam monitor function
     print("=" * 68, flush=True)  # Banner border
     try:  # Try importing face monitor and enroll functions
         import cv2  # Import OpenCV library
+        cv2.utils.logging.setLogLevel(cv2.utils.logging.LOG_LEVEL_ERROR)  # Silence verbose OpenCV C++ warnings
         from auth.face import FaceSessionMonitor, enroll_face_from_frame  # Import monitor class and frame enroll helper
     except Exception as err:  # Handle import errors
         print(f" [Error] Could not initialize face module: {err}", flush=True)  # Print error

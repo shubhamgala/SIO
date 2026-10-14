@@ -6,11 +6,14 @@ import time
 from pathlib import Path
 from collections.abc import Callable
 
-import cv2
-import numpy as np
+import cv2  # Import OpenCV for computer vision and face detection
+import numpy as np  # Import numpy for array manipulation
 
-from .config import AuthConfig
-from .storage import load_embedding, save_embedding
+# Silence internal OpenCV DNN warnings to keep console output clean             # Description comment
+cv2.utils.logging.setLogLevel(cv2.utils.logging.LOG_LEVEL_ERROR)  # Suppress internal OpenCV C++ engine warnings
+
+from .config import AuthConfig  # Import biometric configuration
+from .storage import load_embedding, save_embedding  # Import embedding storage
 
 
 _MODELS_DIR = Path(__file__).resolve().parent.parent / "models"
