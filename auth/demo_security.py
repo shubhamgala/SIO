@@ -131,19 +131,34 @@ def run_live_webcam_test():  # Define live webcam monitor function
     if not enrolled:  # Check if no face was found
         print(" ⚠️ Notice: No face detected yet. Look straight at the camera.", flush=True)  # Notify user
     else:  # Face detected and enrolled
-        print(" ✅ Face enrolled! Starting continuous 15-second session monitoring...", flush=True)  # Confirm
+        print(" ✅ Face enrolled! Starting continuous live session monitoring...", flush=True)  # Confirm
     print(" • Look at camera -> Session remains ACTIVE", flush=True)  # Instructions
     print(" • Turn away or cover camera -> 'FACE LOST' triggers after 5 seconds", flush=True)  # Instructions
+    print(" • Press [ENTER] at any time in this window to stop monitoring", flush=True)  # Instructions
     print("-" * 68, flush=True)  # Divider
     def on_lost():  # Define callback for lost face event
-        print("\n ⚠️  [SECURITY EVENT] FACE LOST! User has stepped away from screen.", flush=True)  # Alert message
-    monitor = FaceSessionMonitor(user_id="user1", source=cap, on_face_lost=on_lost)  # Create monitor instance
+        print("\n ⚠️  [SECURITY EVENT] FACE LOST! User has stepped away or covered camera.", flush=True)  # Alert message
+    def on_recovered():  # Define callback for returned face event
+        print("\n ✅ [SECURITY EVENT] USER RETURNED! Authorized face re-verified.", flush=True)  # Return alert
+    monitor = FaceSessionMonitor(user_id="user1", source=cap, on_face_lost=on_lost, on_face_recovered=on_recovered)  # Create monitor instance
     monitor.start()  # Launch background monitoring thread
-    try:  # Monitor for 15 seconds
-        for sec in range(15, 0, -1):  # Countdown timer loop
+    import threading  # Import threading module for keyboard listener
+    stop_event = threading.Event()  # Create thread stop event flag
+    def wait_for_enter():  # Define background keyboard listener function
+        try:  # Try reading user keypress
+            input()  # Wait for user to press Enter key
+            stop_event.set()  # Signal main loop to exit
+        except (EOFError, KeyboardInterrupt):  # Handle stream close or keyboard interrupt
+            stop_event.set()  # Signal main loop to exit
+    enter_thread = threading.Thread(target=wait_for_enter, daemon=True)  # Create background listener thread
+    enter_thread.start()  # Launch keyboard listener thread
+    try:  # Continuous monitoring loop
+        elapsed = 0  # Counter for elapsed session seconds
+        while not stop_event.is_set():  # Loop continuously until user presses Enter
             time.sleep(1)  # Sleep 1 second
-            print(f" Monitoring active session... {sec}s remaining ", end="\r", flush=True)  # Status update
-        print("\n Monitoring period completed.", flush=True)  # Completed notice
+            elapsed += 1  # Increment elapsed seconds counter
+            print(f" [Session Active: {elapsed:3d}s] Monitoring face... (Press ENTER to finish) ", end="\r", flush=True)  # Status update
+        print(f"\n Session concluded by user after {elapsed} seconds.", flush=True)  # Finished notice
     except KeyboardInterrupt:  # Allow manual Ctrl+C termination
         print("\n Monitoring interrupted by user.", flush=True)  # Interrupted notice
     finally:  # Ensure monitor is stopped cleanly

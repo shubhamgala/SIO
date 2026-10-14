@@ -177,49 +177,51 @@ class FaceSessionMonitor:
 
     def __init__(
         self,
-        user_id: str,
-        source: int | cv2.VideoCapture = 0,
-        config: AuthConfig | None = None,
-        on_face_lost: Callable[[], None] = lambda: None,
-    ) -> None:
-        self.user_id = user_id
-        self.capture = source if isinstance(source, cv2.VideoCapture) else cv2.VideoCapture(source)
-        self.config = config or AuthConfig()
-        self.on_face_lost = on_face_lost
-        self._stop_event = threading.Event()
-        self._thread: threading.Thread | None = None
+        user_id: str,  # Target user id to monitor
+        source: int | cv2.VideoCapture = 0,  # Camera index or VideoCapture instance
+        config: AuthConfig | None = None,  # Biometric configuration
+        on_face_lost: Callable[[], None] = lambda: None,  # Callback when face is lost
+        on_face_recovered: Callable[[], None] = lambda: None,  # Callback when face returns
+    ) -> None:  # Constructor return type
+        self.user_id = user_id  # Store user id
+        self.capture = source if isinstance(source, cv2.VideoCapture) else cv2.VideoCapture(source)  # Store capture
+        self.config = config or AuthConfig()  # Set configuration
+        self.on_face_lost = on_face_lost  # Set lost callback
+        self.on_face_recovered = on_face_recovered  # Set recovered callback
+        self._stop_event = threading.Event()  # Create thread stop event
+        self._thread: threading.Thread | None = None  # Initialize monitor thread handle
 
-    def start(self) -> None:
+    def start(self) -> None:  # Define thread start method
         """Start monitoring in a background thread."""
-        if self._thread is not None and self._thread.is_alive():
-            return
-        self._stop_event.clear()
-        self._thread = threading.Thread(
-            target=self._monitor, name=f"FaceSessionMonitor-{self.user_id}", daemon=True
-        )
-        self._thread.start()
+        if self._thread is not None and self._thread.is_alive():  # Check if thread already active
+            return  # Avoid duplicate start
+        self._stop_event.clear()  # Reset stop event flag
+        self._thread = threading.Thread(  # Create monitor worker thread
+            target=self._monitor, name=f"FaceSessionMonitor-{self.user_id}", daemon=True  # Thread target
+        )  # End of thread initialization
+        self._thread.start()  # Launch thread in background
 
-    def _monitor(self) -> None:
-        last_verified_at = time.monotonic()
-        loss_reported = False
-        poll_interval = max(0.0, self.config.face_poll_interval_seconds)
-        while not self._stop_event.is_set():
-            success, frame = self.capture.read()
-            if success and frame is not None:
-                verified, _ = verify_face(self.user_id, frame, self.config)
-                if verified:
-                    last_verified_at = time.monotonic()
-                    loss_reported = False
-
-            if (
-                not loss_reported
-                and time.monotonic() - last_verified_at > self.config.grace_period_seconds
-            ):
-                loss_reported = True
-                self.on_face_lost()
-
-            if self._stop_event.wait(poll_interval):
-                break
+    def _monitor(self) -> None:  # Define internal monitoring loop
+        last_verified_at = time.monotonic()  # Record initial verification timestamp
+        loss_reported = False  # Track whether loss has already been notified
+        poll_interval = max(0.0, self.config.face_poll_interval_seconds)  # Polling wait interval
+        while not self._stop_event.is_set():  # Loop until stop signal is sent
+            success, frame = self.capture.read()  # Capture frame from video source
+            if success and frame is not None:  # Check frame validity
+                verified, _ = verify_face(self.user_id, frame, self.config)  # Verify face against embedding
+                if verified:  # If matching face is detected
+                    last_verified_at = time.monotonic()  # Refresh last verified timestamp
+                    if loss_reported:  # Check if face was previously reported lost
+                        loss_reported = False  # Reset loss flag
+                        self.on_face_recovered()  # Trigger face recovered event callback
+            if (  # Check if face has been missing longer than grace period
+                not loss_reported  # Only notify once per loss event
+                and time.monotonic() - last_verified_at > self.config.grace_period_seconds  # Exceeded grace period
+            ):  # Condition met
+                loss_reported = True  # Mark loss reported
+                self.on_face_lost()  # Trigger face lost event callback
+            if self._stop_event.wait(poll_interval):  # Sleep for poll interval or break on stop event
+                break  # Exit loop immediately if stop event is set
 
     def stop(self) -> None:
         """Signal the monitor to stop, join it, and release its video source."""
