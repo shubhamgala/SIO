@@ -136,8 +136,15 @@ def run_live_webcam_test():  # Define live webcam monitor function
     print(" • Turn away or cover camera -> 'FACE LOST' triggers after 5 seconds", flush=True)  # Instructions
     print(" • Press [ENTER] at any time in this window to stop monitoring", flush=True)  # Instructions
     print("-" * 68, flush=True)  # Divider
+    lockout_occurred = False  # Track whether session was auto-locked due to missing face
     def on_lost():  # Define callback for lost face event
-        print("\n ⚠️  [SECURITY EVENT] FACE LOST! User has stepped away or covered camera.", flush=True)  # Alert message
+        nonlocal lockout_occurred  # Access outer lockout flag
+        lockout_occurred = True  # Mark lockout triggered
+        print("\n\n" + "=" * 68, flush=True)  # Lockout banner top
+        print(" 🔒 [SECURITY LOCKOUT] FACE LOST FOR OVER 5 SECONDS!", flush=True)  # Main alert
+        print(" ⚠️  No authorized face detected. Session automatically stopped for security.", flush=True)  # Description
+        print("=" * 68 + "\n", flush=True)  # Lockout banner bottom
+        stop_event.set()  # Terminate monitoring loop immediately
     def on_recovered():  # Define callback for returned face event
         print("\n ✅ [SECURITY EVENT] USER RETURNED! Authorized face re-verified.", flush=True)  # Return alert
     monitor = FaceSessionMonitor(user_id="user1", source=cap, on_face_lost=on_lost, on_face_recovered=on_recovered)  # Create monitor instance
@@ -153,12 +160,17 @@ def run_live_webcam_test():  # Define live webcam monitor function
     enter_thread = threading.Thread(target=wait_for_enter, daemon=True)  # Create background listener thread
     enter_thread.start()  # Launch keyboard listener thread
     try:  # Continuous monitoring loop
-        elapsed = 0  # Counter for elapsed session seconds
-        while not stop_event.is_set():  # Loop continuously until user presses Enter
-            time.sleep(1)  # Sleep 1 second
-            elapsed += 1  # Increment elapsed seconds counter
-            print(f" [Session Active: {elapsed:3d}s] Monitoring face... (Press ENTER to finish) ", end="\r", flush=True)  # Status update
-        print(f"\n Session concluded by user after {elapsed} seconds.", flush=True)  # Finished notice
+        elapsed = 0.0  # Counter for elapsed session seconds
+        while not stop_event.is_set():  # Loop continuously until stop signal
+            time.sleep(0.5)  # Check status every 500ms
+            elapsed += 0.5  # Increment elapsed seconds counter
+            if monitor.is_face_verified:  # Face is currently detected and verified
+                print(f" [Session Active: {int(elapsed):2d}s] Face: DETECTED ✓ | Status: SECURE (Press ENTER to finish)   ", end="\r", flush=True)  # Live status
+            else:  # Face is covered or missing
+                countdown = max(0, int(round(5.0 - monitor.time_since_last_seen)))  # Grace period countdown
+                print(f" [Session Active: {int(elapsed):2d}s] Face: MISSING ✗ | ⚠️ Auto-lock in {countdown}s...              ", end="\r", flush=True)  # Live warning
+        if not lockout_occurred:  # Check if user manually finished session
+            print(f"\n Session concluded normally by user after {int(elapsed)} seconds.", flush=True)  # Normal conclusion
     except KeyboardInterrupt:  # Allow manual Ctrl+C termination
         print("\n Monitoring interrupted by user.", flush=True)  # Interrupted notice
     finally:  # Ensure monitor is stopped cleanly

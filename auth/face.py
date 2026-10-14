@@ -188,6 +188,8 @@ class FaceSessionMonitor:
         self.config = config or AuthConfig()  # Set configuration
         self.on_face_lost = on_face_lost  # Set lost callback
         self.on_face_recovered = on_face_recovered  # Set recovered callback
+        self.is_face_verified: bool = True  # Flag tracking whether face is currently verified
+        self.time_since_last_seen: float = 0.0  # Elapsed seconds since face was last verified
         self._stop_event = threading.Event()  # Create thread stop event
         self._thread: threading.Thread | None = None  # Initialize monitor thread handle
 
@@ -211,9 +213,17 @@ class FaceSessionMonitor:
                 verified, _ = verify_face(self.user_id, frame, self.config)  # Verify face against embedding
                 if verified:  # If matching face is detected
                     last_verified_at = time.monotonic()  # Refresh last verified timestamp
+                    self.is_face_verified = True  # Update status to verified
+                    self.time_since_last_seen = 0.0  # Reset missing time counter
                     if loss_reported:  # Check if face was previously reported lost
                         loss_reported = False  # Reset loss flag
                         self.on_face_recovered()  # Trigger face recovered event callback
+                else:  # If face verification failed in this frame
+                    self.is_face_verified = False  # Update status to missing
+                    self.time_since_last_seen = time.monotonic() - last_verified_at  # Record missing duration
+            else:  # If camera frame reading failed
+                self.is_face_verified = False  # Update status to missing
+                self.time_since_last_seen = time.monotonic() - last_verified_at  # Record missing duration
             if (  # Check if face has been missing longer than grace period
                 not loss_reported  # Only notify once per loss event
                 and time.monotonic() - last_verified_at > self.config.grace_period_seconds  # Exceeded grace period
