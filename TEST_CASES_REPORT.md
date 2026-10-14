@@ -5,7 +5,7 @@
 **Version:** 1.0.0 (Development Phase)  
 **Execution Date:** 2026-10-14  
 **Test Runner Script:** `run_all_tests.py`  
-**Overall Result:** **38 / 38 Tests Passed (100.0% Pass Rate)**  
+**Overall Result:** **47 / 47 Tests Passed (100.0% Pass Rate)**  
 
 ---
 
@@ -17,7 +17,8 @@
 | **Module 2 (NLP)** | Multilingual Intent Classification & Financial Entity Extraction | 18 | 18 | 0 | **PASS** |
 | **Module 3 (Dialogue)** | Slot-Filling, Yes/No Classification & Confirmation Prompts | 12 | 12 | 0 | **PASS** |
 | **Module 4 (Auth)** | Biometric Thresholds, Vector Storage & Path Traversal Security | 3 | 3 | 0 | **PASS** |
-| **Total** | **End-to-End System Integration** | **38** | **38** | **0** | **100% PASS** |
+| **Module 4 (Core Banking)** | SQLite Ledger, Balance Before/After, Passbook, Bills, Recharge, ATM & Security | 9 | 9 | 0 | **PASS** |
+| **Total** | **End-to-End System Integration** | **47** | **47** | **0** | **100% PASS** |
 
 ---
 
@@ -79,13 +80,29 @@
 
 ---
 
-#### Module 4: Biometric Authentication Configuration & Storage (`auth/`)
+#### Module 4 (Part A): Biometric Authentication Storage & Config (`auth/`)
 
 | Test ID | Test Objective | Test Input / Action | Expected Result | Status |
 |:---|:---|:---|:---|:---:|
 | `TC-AUTH-01` | Verify Biometric Thresholds | `AuthConfig()` | `face: 0.6, voice: 0.75, grace: 5s` | **PASS** |
 | `TC-AUTH-02` | Biometric Vector Serialization | Save & reload 4D numpy array | `np.allclose(original, loaded) == True` | **PASS** |
 | `TC-AUTH-03` | Path Traversal Security Defense | `save_embedding("../hacker", "face")` | `ValueError` (Rejection of directory traversal) | **PASS** |
+
+---
+
+#### Module 4 (Part B): Core Banking Engine & Database Ledger (`Backend/banking_logic.py`)
+
+| Test ID | Test Objective | Test Input / Action | Expected Verification | Status |
+|:---|:---|:---|:---|:---:|
+| `TC-BANK-01` | Account Balance Retrieval | Query mock account `SB-8839201452` | Positive balance returned for Shubham Gala | **PASS** |
+| `TC-BANK-02` | Fund Transfer with Before/After Audit | Send ₹500 to Raju | Exact debit: `Balance BEFORE - 500.00 == Balance AFTER` | **PASS** |
+| `TC-BANK-03` | Overdraft Rejection Protection | Attempt transfer of ₹99,999,999 | Rejection with `insufficient_funds` & polite Hindi audio | **PASS** |
+| `TC-BANK-04` | Passbook Transaction History | Query last 5 transactions | Formatted ASCII Passbook table with $\ge 5$ entries | **PASS** |
+| `TC-BANK-05` | Mobile Prepaid Recharge | Recharge ₹199 to `9876543210` | Exact balance deduction with Before/After ledger audit | **PASS** |
+| `TC-BANK-06` | Utility Bill Payment Execution | Pay ₹1,200 Electricity Bill | Bill marked as `PAID` in DB and receipt generated | **PASS** |
+| `TC-BANK-07` | Wheelchair-Accessible ATM Locator | Scan nearby ATM branches | Sorted distances, wheelchair ramp notes & cash availability | **PASS** |
+| `TC-BANK-08` | Emergency Card Hotlisting / Blocking | Query `"lost card please block"` | Account card status updated to `BLOCKED` in SQLite DB | **PASS** |
+| `TC-BANK-09` | Unified Intent Dispatcher | Route `"Balance Enquiry"` | Seamless routing from Dialogue output to Core Banking | **PASS** |
 
 ---
 

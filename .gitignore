@@ -55,7 +55,7 @@ temp/
 # ── Jupyter notebooks checkpoints ───────────────────────
 .ipynb_checkpoints/
 
-# ── Distribution / packaging ────────────────────────────
-dist/
-build/
-*.egg-info/
+# ── Database ────────────────────────────────────────────
+data/*.db
+data/*.sqlite
+data/*.sqlite3

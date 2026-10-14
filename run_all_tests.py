@@ -1,5 +1,5 @@
 # SIO Voice-First Banking Assistant - Automated Master Test Suite               # File title comment
-# Runs comprehensive test cases across all modules: STT, NLP, Dialogue & Auth.   # File description comment
+# Runs comprehensive test cases across all modules: STT, NLP, Dialogue, Auth & Banking # File description comment
 # Produces formatted test reports for academic evaluations and progress reviews. # File purpose comment
 
 import os  # Import os module for file path operations
@@ -75,7 +75,7 @@ def test_module_nlp():  # Define NLP test suite function
     print("\n" + "=" * 75)  # Section header border
     print("  TEST SUITE 2: Module 2 - Intent & Entity Recognition (Multilingual)")  # Section title
     print("=" * 75)  # Section header border
-    from NLP.intent_recognition import process_query, clean_greetings  # Import NLP processor
+    from NLP.intent_recognition import process_query  # Import NLP processor
     
     # Test cases mapping: (id, query, expected_intent, expected_amount, expected_recipient)
     nlp_cases = [  # List of intent and entity test cases
@@ -121,18 +121,18 @@ def test_module_dialogue():  # Define Dialogue Manager test suite
         extract_bill_type_from_text, build_confirmation_message, REQUIRED_SLOTS
     )  # End of imports
     
-    # Test TC-DM-01 to 04: Confirmation word detection
+    # Test TC-DM-01 to 05: Confirmation word detection
     record_test("TC-DM-01", "Dialogue", "Detect Hindi 'haan' as confirmation", "yes", detect_yes_no("haan kar do"), detect_yes_no("haan kar do") == "yes")  # Test
     record_test("TC-DM-02", "Dialogue", "Detect English 'yes' as confirmation", "yes", detect_yes_no("yes please confirm"), detect_yes_no("yes please confirm") == "yes")  # Test
     record_test("TC-DM-03", "Dialogue", "Detect Hindi 'nahi' as cancellation", "no", detect_yes_no("nahi mat karo"), detect_yes_no("nahi mat karo") == "no")  # Test
     record_test("TC-DM-04", "Dialogue", "Detect English 'cancel' as cancellation", "no", detect_yes_no("cancel this payment"), detect_yes_no("cancel this payment") == "no")  # Test
     record_test("TC-DM-05", "Dialogue", "Unclear input classified as unknown", "unknown", detect_yes_no("random text"), detect_yes_no("random text") == "unknown")  # Test
     
-    # Test TC-DM-06 to 08: Slot parsing helpers
+    # Test TC-DM-06 to 09: Slot parsing helpers
     amt = extract_amount_from_text("5000 rupaye")  # Digits amount
     record_test("TC-DM-06", "Dialogue", "Extract digits amount from follow-up", 5000, amt, amt == 5000)  # Test
     
-    amt_spoken = extract_amount_from_text("ek hazaar rupaye")  # Hindi spoken amount
+    amt_spoken = extract_amount_from_text("ek hazaar rupaye")  # Spoken Hindi amount
     record_test("TC-DM-07", "Dialogue", "Extract spoken Hindi 'ek hazaar' as 1000", 1000, amt_spoken, amt_spoken == 1000)  # Test
     
     recip = extract_recipient_from_text("Raju ko bhejna")  # Recipient follow-up
@@ -141,7 +141,7 @@ def test_module_dialogue():  # Define Dialogue Manager test suite
     bill = extract_bill_type_from_text("bijli ka bill bharna hai")  # Bill type follow-up
     record_test("TC-DM-09", "Dialogue", "Extract 'Electricity' bill type", "Electricity", bill, bill == "Electricity")  # Test
     
-    # Test TC-DM-10 & 11: Confirmation messages
+    # Test TC-DM-10 to 12: Confirmation messages & slots
     msg_transfer = build_confirmation_message("Fund Transfer", {"recipient": "Raju", "amount": 500})  # Build msg
     transfer_ok = ("Raju" in msg_transfer) and ("500" in msg_transfer) and ("Haan ya Nahi" in msg_transfer)  # Check
     record_test("TC-DM-10", "Dialogue", "Build Hindi Fund Transfer confirmation message", True, transfer_ok, transfer_ok)  # Test
@@ -150,7 +150,6 @@ def test_module_dialogue():  # Define Dialogue Manager test suite
     balance_ok = "account balance" in msg_balance and "Haan ya Nahi" in msg_balance  # Check
     record_test("TC-DM-11", "Dialogue", "Build Hindi Balance Enquiry confirmation message", True, balance_ok, balance_ok)  # Test
     
-    # Test TC-DM-12: Slot requirements
     slots_ok = REQUIRED_SLOTS["Fund Transfer"] == ["recipient", "amount"] and REQUIRED_SLOTS["Balance Enquiry"] == []  # Check
     record_test("TC-DM-12", "Dialogue", "Verify required slot definitions for intents", True, slots_ok, slots_ok)  # Test
 
@@ -191,6 +190,78 @@ def test_module_auth():  # Define Auth module test suite
         invalid_user_caught = True  # Caught
     record_test("TC-AUTH-03", "Auth", "Reject path traversal attack in user_id", True, invalid_user_caught, invalid_user_caught)  # Test
 
+# ── Module 5 Tests: Core Banking Engine & Database Ledger ─────────────────────── #
+def test_module_banking():  # Define Core Banking test suite
+    print("\n" + "=" * 75)  # Section header border
+    print("  TEST SUITE 5: Module 4 - Core Banking Engine & Database Ledger")  # Section title
+    print("=" * 75)  # Section header border
+    from Backend.banking_logic import (  # Import banking logic functions
+        init_banking_database, check_balance, transfer_funds,
+        get_transaction_history, execute_mobile_recharge, pay_utility_bill,
+        locate_nearest_atms, handle_help_and_security, execute_banking_action,
+        get_db_connection, DEFAULT_ACCOUNT_NUM
+    )  # End of imports
+    
+    init_banking_database()  # Ensure database tables and initial seed data exist
+    
+    # Test TC-BANK-01: Check Balance query returns positive balance
+    bal_res = check_balance(DEFAULT_ACCOUNT_NUM)  # Query account balance
+    bal_ok = bal_res["status"] == "success" and bal_res["balance"] > 0 and "Shubham" in bal_res.get("holder", "")  # Verify
+    record_test("TC-BANK-01", "Banking", "Check balance returns positive balance for mock account", True, bal_ok, bal_ok)  # Test
+    
+    # Test TC-BANK-02: Fund Transfer with Before and After Balance Verification
+    init_bal = check_balance(DEFAULT_ACCOUNT_NUM)["balance"]  # Check starting balance
+    tx_res = transfer_funds("Raju", 500.0, DEFAULT_ACCOUNT_NUM)  # Send ₹500 to Raju
+    tx_ok = (  # Check transfer math
+        tx_res["status"] == "success" and
+        tx_res["amount"] == 500.0 and
+        tx_res["balance_before"] == init_bal and
+        abs(tx_res["balance_after"] - (init_bal - 500.0)) < 0.01 and
+        "Raju" in tx_res["recipient"]
+    )  # End of transfer condition
+    record_test("TC-BANK-02", "Banking", "Transfer ₹500 to Raju validates Balance BEFORE - 500 == AFTER", True, tx_ok, tx_ok)  # Test
+    
+    # Test TC-BANK-03: Insufficient Funds handling
+    insuf_res = transfer_funds("Amit", 99999999.0, DEFAULT_ACCOUNT_NUM)  # Try transferring huge amount
+    insuf_ok = insuf_res["status"] == "insufficient_funds" and "paryapt balance" in insuf_res["speech"].lower()  # Verify
+    record_test("TC-BANK-03", "Banking", "Overdraft rejection prevents transfer exceeding balance", True, insuf_ok, insuf_ok)  # Test
+    
+    # Test TC-BANK-04: Transaction History Passbook retrieval
+    hist_res = get_transaction_history(5, DEFAULT_ACCOUNT_NUM)  # Request last 5 transactions
+    hist_ok = hist_res["status"] == "success" and hist_res.get("count", 0) >= 5 and "PASSBOOK" in hist_res["display"]  # Verify
+    record_test("TC-BANK-04", "Banking", "Transaction history retrieves 5 transactions in passbook table", True, hist_ok, hist_ok)  # Test
+    
+    # Test TC-BANK-05: Mobile Recharge Before & After balance
+    pre_rec_bal = check_balance(DEFAULT_ACCOUNT_NUM)["balance"]  # Starting balance
+    rec_res = execute_mobile_recharge(199.0, "9876543210", DEFAULT_ACCOUNT_NUM)  # Recharge ₹199
+    rec_ok = rec_res["status"] == "success" and abs(rec_res["balance_after"] - (pre_rec_bal - 199.0)) < 0.01  # Math check
+    record_test("TC-BANK-05", "Banking", "Mobile recharge ₹199 deducts accurately with before/after audit", True, rec_ok, rec_ok)  # Test
+    
+    # Test TC-BANK-06: Utility Bill Payment Status update
+    bill_res = pay_utility_bill("Electricity", 1200.0, DEFAULT_ACCOUNT_NUM)  # Pay electricity bill
+    bill_ok = bill_res["status"] == "success" and "PAID" in bill_res["display"] and "Electricity" in bill_res["speech"]  # Check
+    record_test("TC-BANK-06", "Banking", "Electricity bill payment executes and marks bill as PAID", True, bill_ok, bill_ok)  # Test
+    
+    # Test TC-BANK-07: ATM Locator returns nearest branches with wheelchair & cash
+    atm_res = locate_nearest_atms()  # Locate ATMs
+    atm_ok = atm_res["status"] == "success" and atm_res.get("count", 0) >= 3 and "ATMS & BRANCHES" in atm_res["display"]  # Check
+    record_test("TC-BANK-07", "Banking", "ATM Locator returns nearby branches with distance and accessibility", True, atm_ok, atm_ok)  # Test
+    
+    # Test TC-BANK-08: Emergency Debit Card Blocking updates DB status to BLOCKED
+    block_res = handle_help_and_security("lost card please block", DEFAULT_ACCOUNT_NUM)  # Request card block
+    conn = get_db_connection()  # Connect to database
+    cursor = conn.cursor()  # Get cursor
+    cursor.execute("SELECT card_status FROM accounts WHERE account_number = ?", (DEFAULT_ACCOUNT_NUM,))  # Query card
+    card_st = cursor.fetchone()["card_status"]  # Get status
+    conn.close()  # Close connection
+    card_ok = block_res["status"] == "card_blocked" and card_st == "BLOCKED"  # Verify status
+    record_test("TC-BANK-08", "Banking", "Emergency card loss inquiry marks Debit Card as BLOCKED in DB", True, card_ok, card_ok)  # Test
+    
+    # Test TC-BANK-09: Unified Dispatcher for Balance Enquiry
+    action_res = execute_banking_action({"intent": "Balance Enquiry", "entities": {}}, DEFAULT_ACCOUNT_NUM)  # Dispatch
+    action_ok = action_res["status"] == "success" and "balance" in action_res  # Verify
+    record_test("TC-BANK-09", "Banking", "Unified dispatcher routes 'Balance Enquiry' correctly", True, action_ok, action_ok)  # Test
+
 # ── Main Runner Function ──────────────────────────────────────────────────────── #
 def run_all():  # Define master runner
     print("=" * 75)  # Header top
@@ -202,6 +273,7 @@ def run_all():  # Define master runner
     test_module_nlp()  # Execute NLP tests
     test_module_dialogue()  # Execute Dialogue tests
     test_module_auth()  # Execute Auth tests
+    test_module_banking()  # Execute Core Banking tests
     
     # Summary calculation
     pass_percentage = (PASSED_TESTS / TOTAL_TESTS * 100) if TOTAL_TESTS > 0 else 0.0  # Calculate %
