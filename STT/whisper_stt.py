@@ -73,37 +73,50 @@ def get_best_microphone_device():  # Define function to auto-pick the best micro
         devices = sd.query_devices()  # Retrieve all audio devices
         input_devs = [i for i, d in enumerate(devices) if d.get('max_input_channels', 0) > 0]  # Filter inputs
         if not input_devs:  # Check if no input device exists
-            print("[SIO STT] Error: No microphone input found.")  # Error log
+            print("[SIO STT] Error: No microphone input found.", flush=True)  # Error log
             return None, "No Microphone"  # Return None
+        default_in = sd.default.device[0]  # Get system default input device index
+        # Prioritize system default input device and any Bluetooth headset device
+        priority_devs = []  # List of prioritized device indices
+        if default_in is not None and default_in in input_devs:  # Check if default is valid
+            priority_devs.append(default_in)  # Test default device first
+        for idx in input_devs:  # Loop through all input devices
+            name_lower = devices[idx]['name'].lower()  # Get lowercase name
+            if ("buds" in name_lower or "headset" in name_lower or "bluetooth" in name_lower) and idx not in priority_devs:  # Check headset
+                priority_devs.append(idx)  # Prioritize headset
+        for idx in input_devs:  # Add remaining candidate input devices
+            if idx not in priority_devs:  # Avoid duplicate entries
+                priority_devs.append(idx)  # Append remaining device
         best_id = None  # Track best device id
         best_peak = -1.0  # Track highest peak signal
-        # Fast 0.2s signal check on candidate inputs to find which one is hearing voice # Comment
-        for idx in input_devs:  # Loop through input devices
+        # Fast 0.15s signal check on candidate inputs to find which one is hearing voice # Comment
+        for idx in priority_devs[:3]:  # Check top 3 candidate devices quickly
             dev = devices[idx]  # Get device info
             try:  # Try recording test burst
-                snippet = sd.rec(int(0.2 * SAMPLE_RATE), samplerate=SAMPLE_RATE, channels=1, dtype='float32', device=idx)  # Record
+                snippet = sd.rec(int(0.15 * SAMPLE_RATE), samplerate=SAMPLE_RATE, channels=1, dtype='float32', device=idx)  # Record
                 sd.wait()  # Wait for burst
                 peak = float(np.max(np.abs(snippet)))  # Calculate peak amplitude
                 if peak > best_peak:  # If louder than previous best
                     best_peak = peak  # Update peak
                     best_id = idx  # Update device id
+                if peak > 0.005:  # If strong voice signal is found immediately
+                    break  # Break early to start recording without delay
             except Exception:  # If device fails to open
                 continue  # Skip to next device
         if best_id is not None and best_peak > 0.001:  # If an active device with real sound was found
             name = devices[best_id]['name']  # Get device name
-            print(f"[SIO STT] Active microphone: [{best_id}] {name} (Signal: {best_peak:.5f})")  # Log selection
+            print(f"[SIO STT] Active microphone: [{best_id}] {name} (Signal: {best_peak:.5f})", flush=True)  # Log selection
             return best_id, name  # Return chosen device
         # Fallback to system default input device if signal test was inconclusive  # Comment
-        default_in = sd.default.device[0]  # Get system default input device index
         if default_in is None or default_in < 0:  # If default device index invalid
             default_in = input_devs[0]  # Take first available device
         default_name = devices[default_in]['name']  # Get default name
-        print(f"[SIO STT] Using default microphone: [{default_in}] {default_name}")  # Log default
+        print(f"[SIO STT] Using default microphone: [{default_in}] {default_name}", flush=True)  # Log default
         if best_peak < 0.0005:  # If audio signal is close to digital silence
-            print("[SIO STT] ⚠️ Notice: Microphone signal is very low. If muted, check your F4 key or Windows Sound Settings.")  # Warn
+            print("[SIO STT] ⚠️ Notice: Microphone signal is very low. If muted, check your F4 key or Windows Sound Settings.", flush=True)  # Warn
         return default_in, default_name  # Return default device
     except Exception as e:  # Catch any device query error
-        print(f"[SIO STT] Warning during device check: {e}")  # Log warning
+        print(f"[SIO STT] Warning during device check: {e}", flush=True)  # Log warning
         return None, "Default"  # Return None fallback
 
 # Function to remove low-frequency rumble and fan noise                           # Description comment
@@ -121,24 +134,24 @@ def record_audio_to_wav():  # Define audio recording function
     try:  # Start try block
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:  # Create temporary WAV file
             temp_wav_path = tmp.name  # Store file path
-        print("[SIO STT] Get ready to speak in:")  # Prompt user
+        print("[SIO STT] Get ready to speak in:", flush=True)  # Prompt user immediately
         for count in range(3, 0, -1):  # 3-second countdown loop
-            print(f"[SIO STT]   {count}...")  # Display countdown number
+            print(f"[SIO STT]   {count}...", flush=True)  # Display countdown number immediately
             time.sleep(1)  # Pause 1 second
-        print(f"[SIO STT] >>> SPEAK NOW! (Hindi / English / Hinglish for {DURATION}s) <<<")  # Prompt to speak
+        print(f"[SIO STT] >>> SPEAK NOW! (Hindi / English / Hinglish for {DURATION}s) <<<", flush=True)  # Prompt to speak
         raw_audio = sd.rec(int(DURATION * SAMPLE_RATE), samplerate=SAMPLE_RATE, channels=1, dtype='float32', device=device_id)  # Record
         sd.wait()  # Wait for recording to complete
-        print("[SIO STT] Recording finished! Processing audio...")  # Inform recording done
+        print("[SIO STT] Recording finished! Processing audio...", flush=True)  # Inform recording done
         mono = raw_audio.flatten()  # Flatten into 1D audio array
         mono = apply_audio_filter(mono)  # Apply highpass filter to cut fan and room rumble
         peak = float(np.max(np.abs(mono)))  # Measure peak audio volume
         if peak > 0.0005:  # Check if real audio signal exists
             mono = (mono / peak) * 0.95  # Normalize volume to 95% full scale for clear transcription
         else:  # If audio is virtually silent
-            print("[SIO STT] ⚠️ Audio signal was extremely faint. Please check microphone volume.")  # Warn
+            print("[SIO STT] ⚠️ Audio signal was extremely faint. Please check microphone volume.", flush=True)  # Warn
         int16_audio = (mono * 32767.0).astype(np.int16)  # Convert float32 samples to 16-bit PCM format
         wavfile.write(temp_wav_path, SAMPLE_RATE, int16_audio)  # Save audio to temporary WAV file
-        print(f"[SIO STT] Audio saved temporarily at: {temp_wav_path}")  # Log saved file path
+        print(f"[SIO STT] Audio saved temporarily at: {temp_wav_path}", flush=True)  # Log saved file path
         return temp_wav_path  # Return WAV path
     except Exception as rec_err:  # Catch any recording error
         print(f"[SIO STT] Error during recording: {rec_err}")  # Log error

@@ -7,23 +7,23 @@ from pathlib import Path
 import numpy as np
 import torch
 import torchaudio
-from speechbrain.inference.classifiers import EncoderClassifier
+from speechbrain.inference.classifiers import EncoderClassifier  # Import SpeechBrain classifier
+from speechbrain.utils.fetching import LocalStrategy  # Import LocalStrategy for safe Windows file copying
 
-from .config import AuthConfig
-from .storage import load_embedding, save_embedding
+from .config import AuthConfig  # Import biometric configuration
+from .storage import load_embedding, save_embedding  # Import embedding storage
 
+_SAMPLE_RATE = 16_000  # Target sample rate in Hz
+_MODEL_DIR = Path(__file__).resolve().parent.parent / "models" / "spkrec-ecapa-voxceleb"  # Model path
 
-_SAMPLE_RATE = 16_000
-_MODEL_DIR = Path(__file__).resolve().parent.parent / "models" / "spkrec-ecapa-voxceleb"
-
-
-@lru_cache(maxsize=1)
-def _speaker_classifier() -> EncoderClassifier:
+@lru_cache(maxsize=1)  # Cache model in memory
+def _speaker_classifier() -> EncoderClassifier:  # Define model loader
     """Load and cache the pretrained speaker encoder on first use."""
-    return EncoderClassifier.from_hparams(
-        source="speechbrain/spkrec-ecapa-voxceleb",
-        savedir=str(_MODEL_DIR),
-    )
+    return EncoderClassifier.from_hparams(  # Load model
+        source="speechbrain/spkrec-ecapa-voxceleb",  # Pretrained model name
+        savedir=str(_MODEL_DIR),  # Local save directory
+        local_strategy=LocalStrategy.COPY,  # Use file copy instead of Windows symlink
+    )  # End of loader
 
 
 def extract_voice_embedding(audio_path: str) -> np.ndarray:
