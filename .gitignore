@@ -55,7 +55,10 @@ temp/
 # ── Jupyter notebooks checkpoints ───────────────────────
 .ipynb_checkpoints/
 
-# ── Database ────────────────────────────────────────────
+# ── Database & Models ───────────────────────────────────
 data/*.db
 data/*.sqlite
 data/*.sqlite3
+models/*.onnx
+models/*.caffemodel
+embeddings/*.npy
