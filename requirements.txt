@@ -20,3 +20,7 @@ safetensors             # Safe model weight serialization format used by Hugging
 gtts                    # Google Text-to-Speech — converts Hindi text to spoken MP3 audio
 pygame-ce               # pygame Community Edition — cross-platform audio playback for TTS output
 
+# ── Biometric Authentication & Security (Module 4 Auth) ──
+opencv-python           # OpenCV for facial capture, YuNet detection, and SFace recognition
+torchaudio              # Audio I/O and processing for speaker verification
+speechbrain             # SpeechBrain ECAPA-TDNN speaker embedding extraction
