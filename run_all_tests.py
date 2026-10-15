@@ -157,6 +157,10 @@ def test_module_dialogue():  # Define Dialogue Manager test suite
     balance_ok = "account balance" in msg_balance and "Haan ya Nahi" in msg_balance  # Check
     record_test("TC-DM-11", "Dialogue", "Build Hindi Balance Enquiry confirmation message", True, balance_ok, balance_ok)  # Test
     
+    msg_bill = build_confirmation_message("Bill Payment", {"bill_type": "Electricity", "amount": 1200})  # Build bill confirmation
+    bill_msg_ok = "Aapka Electricity bill 1200 rupaye ka hai" in msg_bill and "Haan ya Nahi" in msg_bill  # Verify message text
+    record_test("TC-DM-11b", "Dialogue", "Build Hindi Bill Payment confirmation prompt (Aapka bill 1200 ka hai)", True, bill_msg_ok, bill_msg_ok)  # Test
+    
     slots_ok = REQUIRED_SLOTS["Fund Transfer"] == ["recipient", "amount"] and REQUIRED_SLOTS["Balance Enquiry"] == []  # Check
     record_test("TC-DM-12", "Dialogue", "Verify required slot definitions for intents", True, slots_ok, slots_ok)  # Test
     

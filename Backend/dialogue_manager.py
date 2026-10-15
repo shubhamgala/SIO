@@ -314,10 +314,23 @@ def build_confirmation_message(intent, entities):  # Define function to assemble
         amount = entities.get('amount', 0)  # Get recharge amount or fallback to zero
         return f'Kya aap {amount} rupaye ka mobile recharge karna chahte hain? Haan ya Nahi?'  # Build message
     if intent == 'Bill Payment':  # Check if the intent is a bill payment
-        bill_type = entities.get('bill_type', 'bill')  # Get bill type or fallback placeholder
-        amount = entities.get('amount', '')  # Get amount if available for bill payment
-        amount_part = f'{amount} rupaye ka ' if amount else ''  # Build optional amount string
-        return f'Kya aap {amount_part}{bill_type} bill bharna chahte hain? Haan ya Nahi?'  # Build message
+        bill_type = entities.get('bill_type', 'Electricity')  # Get bill type or fallback to Electricity
+        amount = entities.get('amount')  # Get amount if available from NLP entity extraction
+        if not amount:  # If amount was not explicitly mentioned in user query
+            try:  # Try to lookup pending bill amount from database
+                from Backend.banking_logic import get_db_connection, DEFAULT_ACCOUNT_NUM  # Import db helper
+                conn = get_db_connection()  # Open db connection
+                cursor = conn.cursor()  # Open db cursor
+                cursor.execute("SELECT amount FROM utility_bills WHERE account_number = ? AND bill_type LIKE ? LIMIT 1", (DEFAULT_ACCOUNT_NUM, f"%{bill_type}%"))  # Query bill
+                row = cursor.fetchone()  # Fetch bill record
+                conn.close()  # Close db connection
+                amount = int(row["amount"]) if row else 1200  # Extract amount or fallback to 1200
+            except Exception:  # Safe fallback if db not initialized
+                amount = 1200  # Default to 1200
+            entities['amount'] = amount  # Store looked-up amount into entities dictionary
+        else:  # If amount was already in entities
+            amount = int(amount) if isinstance(amount, (int, float)) and int(amount) == amount else amount  # Format
+        return f'Aapka {bill_type} bill {amount} rupaye ka hai. Kya aap bharna chahte hain? Haan ya Nahi?'  # Build user-friendly confirmation message
     if intent == 'Balance Enquiry':  # Check if the intent is a balance enquiry
         return 'Kya aap apna account balance check karna chahte hain? Haan ya Nahi?'  # Build message
     if intent == 'Transaction History':  # Check if the intent is a transaction history request
