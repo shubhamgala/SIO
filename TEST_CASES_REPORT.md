@@ -3,9 +3,9 @@
 
 **Project Title:** SIO — Multilingual Voice-First Banking Assistant for Elderly Users  
 **Version:** 1.0.0 (Development Phase)  
-**Execution Date:** 2026-10-14  
+**Execution Date:** 2026-10-15  
 **Test Runner Script:** `run_all_tests.py`  
-**Overall Result:** **47 / 47 Tests Passed (100.0% Pass Rate)**  
+**Overall Result:** **53 / 53 Tests Passed (100.0% Pass Rate)**  
 
 ---
 
@@ -15,10 +15,10 @@
 |:---|:---|:---:|:---:|:---:|:---:|
 | **Module 1 (STT)** | Audio Filtering, Hallucination Cleanup & Currency Normalization | 5 | 5 | 0 | **PASS** |
 | **Module 2 (NLP)** | Multilingual Intent Classification & Financial Entity Extraction | 18 | 18 | 0 | **PASS** |
-| **Module 3 (Dialogue)** | Slot-Filling, Yes/No Classification & Confirmation Prompts | 12 | 12 | 0 | **PASS** |
+| **Module 3 (Dialogue)** | Slot-Filling, Phonetic Yes/No, Devanagari Affirmatives & Hindi Number TTS | 18 | 18 | 0 | **PASS** |
 | **Module 4 (Auth)** | Biometric Thresholds, Vector Storage & Path Traversal Security | 3 | 3 | 0 | **PASS** |
 | **Module 4 (Core Banking)** | SQLite Ledger, Balance Before/After, Passbook, Bills, Recharge, ATM & Security | 9 | 9 | 0 | **PASS** |
-| **Total** | **End-to-End System Integration** | **47** | **47** | **0** | **100% PASS** |
+| **Total** | **End-to-End System Integration** | **53** | **53** | **0** | **100% PASS** |
 
 ---
 
@@ -66,8 +66,11 @@
 | Test ID | Test Objective | Spoken Input | Expected Interpretation | Status |
 |:---|:---|:---|:---|:---:|
 | `TC-DM-01` | Hindi Confirmation Detection | `"haan kar do"` | `yes` (Proceed action) | **PASS** |
+| `TC-DM-01b` | Whisper Phonetic Confirmation | `"Ah!"` | `yes` (Soft affirmative capture) | **PASS** |
+| `TC-DM-01c` | Devanagari Hindi Affirmative | `"हाँ"` | `yes` (Script confirmation) | **PASS** |
 | `TC-DM-02` | English Confirmation Detection | `"yes please confirm"` | `yes` (Proceed action) | **PASS** |
 | `TC-DM-03` | Hindi Cancellation Detection | `"nahi mat karo"` | `no` (Abort action) | **PASS** |
+| `TC-DM-03b` | Devanagari Hindi Cancellation | `"नहीं"` | `no` (Script cancellation) | **PASS** |
 | `TC-DM-04` | English Cancellation Detection | `"cancel this payment"` | `no` (Abort action) | **PASS** |
 | `TC-DM-05` | Unclear / Gibberish Detection | `"random gibberish"` | `unknown` (Prompt retry) | **PASS** |
 | `TC-DM-06` | Digits Amount Slot Extraction | `"5000 rupaye"` | `5000` | **PASS** |
@@ -77,6 +80,9 @@
 | `TC-DM-10` | Fund Transfer Readback Prompt | Recipient: Raju, Amount: 500 | `"Kya aap Raju ko 500 rupaye bhejna chahte hain? Haan ya Nahi?"` | **PASS** |
 | `TC-DM-11` | Balance Readback Prompt | Balance intent | `"Kya aap apna account balance check karna chahte hain? Haan ya Nahi?"` | **PASS** |
 | `TC-DM-12` | Slot Requirement Verification | Fund Transfer vs Balance | `FT: ['recipient', 'amount']`, `BE: []` | **PASS** |
+| `TC-DM-13` | Number to Hindi Words Conversion | `500` | `"पाँच सौ"` | **PASS** |
+| `TC-DM-14` | Spoken Readback TTS Normalization | `"... 500 rupaye ..."` | `"... पाँच सौ rupaye ..."` | **PASS** |
+| `TC-DM-15` | Spoken Ledger Balance Normalization | `"... 25,000.00 rupaye ..."` | `"... पच्चीस हज़ार rupaye ..."` | **PASS** |
 
 ---
 

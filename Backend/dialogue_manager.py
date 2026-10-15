@@ -77,15 +77,87 @@ FOLLOWUP_QUESTIONS = {  # Map each missing slot to the Hindi voice question to a
 # Words in Hindi, Hinglish and English that mean YES — confirm the transaction   # Description comment
 YES_WORDS = {  # Set of words across languages that indicate user confirmation
     'haan', 'ha', 'han', 'yes', 'yeah', 'yep', 'yup', 'correct',  # Hindi, Hinglish, English yes words
-    'theek hai', 'bilkul', 'zaroor', 'confirm', 'ok', 'okay',  # Additional agreement words
-    'sahi', 'proceed', 'go ahead',  # Action confirmation words (karo removed — too ambiguous)
+    'theek hai', 'theek', 'bilkul', 'zaroor', 'confirm', 'ok', 'okay',  # Additional agreement words
+    'sahi', 'proceed', 'go ahead', 'kar do', 'bhej do', 'kardo', 'bhejdo',  # Action confirmation words
+    'ah', 'aah', 'haa', 'ji haan', 'haan ji', 'haanji', 'ji', 'jee',  # Whisper phonetics and polite Hindi terms
+    'हाँ', 'हां', 'हं', 'जी हाँ', 'जी हां', 'सही है', 'कर दो', 'भेज दो',  # Devanagari script affirmatives
 }  # End of YES_WORDS set
 
 # Words in Hindi, Hinglish and English that mean NO — cancel the transaction     # Description comment
 NO_WORDS = {  # Set of words across languages that indicate user cancellation
     'nahi', 'na', 'no', 'nope', 'cancel', 'naa', 'mat karo',  # Hindi, Hinglish, English no words
     'rok do', 'band karo', 'stop', 'abort', 'mat', 'nahin',  # Additional cancellation words
+    'nah', 'nhi', 'nahi chahiye', 'matkaro', 'rokdo',  # Common phonetic variations
+    'नहीं', 'ना', 'मत', 'मत करो', 'रोक दो', 'बंद करो', 'रद्द करो',  # Devanagari script cancellation words
 }  # End of NO_WORDS set
+
+# ─── Hindi number to words converter (for natural speech readback) ───────────── #
+# Dictionary mapping numbers 0 to 99 to their Hindi Devanagari words              # Description comment
+HINDI_0_TO_99 = {  # Map numbers 0 to 99 to their authentic spoken Hindi words
+    0: 'शून्य', 1: 'एक', 2: 'दो', 3: 'तीन', 4: 'चार', 5: 'पाँच',  # Numbers 0-5
+    6: 'छह', 7: 'सात', 8: 'आठ', 9: 'नौ', 10: 'दस',  # Numbers 6-10
+    11: 'ग्यारह', 12: 'बारह', 13: 'तेरह', 14: 'चौदह', 15: 'पंद्रह',  # Numbers 11-15
+    16: 'सोलह', 17: 'सत्रह', 18: 'अठारह', 19: 'उन्नीस', 20: 'बीस',  # Numbers 16-20
+    21: 'इक्कीस', 22: 'बाईस', 23: 'तेईस', 24: 'चौबीस', 25: 'पच्चीस',  # Numbers 21-25
+    26: 'छब्बीस', 27: 'सत्ताईस', 28: 'अट्ठाईस', 29: 'उनतीस', 30: 'तीस',  # Numbers 26-30
+    31: 'इकतीस', 32: 'बत्तीस', 33: 'तैंतीस', 34: 'चौंतीस', 35: 'पैंतीस',  # Numbers 31-35
+    36: 'छत्तीस', 37: 'सैंतीस', 38: 'अड़तीस', 39: 'उनतालीस', 40: 'चालीस',  # Numbers 36-40
+    41: 'इकतालीस', 42: 'बयालीस', 43: 'तैंतालीस', 44: 'चवालीस', 45: 'पैंतालीस',  # Numbers 41-45
+    46: 'छियालीस', 47: 'सैंतालीस', 48: 'अड़तालीस', 49: 'उनचास', 50: 'पचास',  # Numbers 46-50
+    51: 'इक्यावन', 52: 'बावन', 53: 'तिरेपन', 54: 'चौवन', 55: 'पचपन',  # Numbers 51-55
+    56: 'छप्पन', 57: 'सत्तावन', 58: 'अट्ठावन', 59: 'उनसठ', 60: 'साठ',  # Numbers 56-60
+    61: 'इकसठ', 62: 'बासठ', 63: 'तिरेसठ', 64: 'चौंसठ', 65: 'पैंसठ',  # Numbers 61-65
+    66: 'छियासठ', 67: 'सरसठ', 68: 'अड़सठ', 69: 'उनहत्तर', 70: 'सत्तर',  # Numbers 66-70
+    71: 'इकहत्तर', 72: 'बहत्तर', 73: 'तिहत्तर', 74: 'चौहत्तर', 75: 'पचहत्तर',  # Numbers 71-75
+    76: 'छिहत्तर', 77: 'सतहत्तर', 78: 'अठहत्तर', 79: 'उनासी', 80: 'अस्सी',  # Numbers 76-80
+    81: 'इक्यासी', 82: 'बयासी', 83: 'तिरासी', 84: 'चौरासी', 85: 'पचासी',  # Numbers 81-85
+    86: 'छियासी', 87: 'सत्तासी', 88: 'अट्ठासी', 89: 'नवासी', 90: 'नब्बे',  # Numbers 86-90
+    91: 'इक्यानवे', 92: 'बानवे', 93: 'तिरानवे', 94: 'चौरानवे', 95: 'पंचानवे',  # Numbers 91-95
+    96: 'छियानवे', 97: 'सत्तानवे', 98: 'अट्ठानवे', 99: 'निन्यानवे',  # Numbers 96-99
+}  # End of HINDI_0_TO_99 dictionary
+
+# Function to convert an integer into spoken Hindi words                         # Description comment
+def int_to_hindi(num):  # Define function to convert integer into Hindi word representation
+    if num == 0:  # Check if number is zero
+        return HINDI_0_TO_99[0]  # Return Hindi word for zero
+    parts = []  # Initialize empty list to accumulate word segments
+    crore = num // 10000000  # Calculate crore segment (10 million)
+    if crore > 0:  # Check if crore segment is non-zero
+        parts.append(int_to_hindi(crore) + ' करोड़')  # Append crore words
+        num %= 10000000  # Remove crore portion from number
+    lakh = num // 100000  # Calculate lakh segment (100 thousand)
+    if lakh > 0:  # Check if lakh segment is non-zero
+        parts.append(HINDI_0_TO_99.get(lakh, str(lakh)) + ' लाख')  # Append lakh words
+        num %= 100000  # Remove lakh portion from number
+    thousand = num // 1000  # Calculate thousand segment
+    if thousand > 0:  # Check if thousand segment is non-zero
+        parts.append(HINDI_0_TO_99.get(thousand, str(thousand)) + ' हज़ार')  # Append thousand words
+        num %= 1000  # Remove thousand portion from number
+    hundred = num // 100  # Calculate hundred segment
+    if hundred > 0:  # Check if hundred segment is non-zero
+        parts.append(HINDI_0_TO_99.get(hundred, str(hundred)) + ' सौ')  # Append hundred words
+        num %= 100  # Remove hundred portion from number
+    if num > 0:  # Check if remainder between 1 and 99 remains
+        parts.append(HINDI_0_TO_99.get(num, str(num)))  # Append remainder Hindi words
+    return ' '.join(parts)  # Return full combined Hindi word string
+
+# Function to replace all numeric digits with authentic Hindi words for speech   # Description comment
+def format_numbers_for_hindi_speech(text):  # Define function to prepare text with Hindi numbers for TTS
+    def _replacer(match):  # Inner function to replace each matched numeric string
+        raw = match.group(0).replace(',', '')  # Strip commas from number format
+        try:  # Start try block to parse number safely
+            val = float(raw)  # Convert raw numeric string to float
+            if val >= 10000000:  # Ignore phone numbers and account numbers over 7 digits
+                return match.group(0)  # Return original string for large account or phone numbers
+            int_val = int(val)  # Extract integer portion
+            decimal_part = int(round((val - int_val) * 100))  # Extract 2-decimal paise portion
+            words = int_to_hindi(int_val)  # Convert integer portion into Hindi words
+            if decimal_part > 0:  # Check if non-zero decimal paise exist
+                words += ' दशमलव ' + int_to_hindi(decimal_part)  # Append decimal Hindi words
+            return words  # Return spoken Hindi word replacement
+        except Exception:  # Catch any parsing exception
+            return match.group(0)  # Fall back to original match on error
+    return re.sub(r'\b\d[\d,]*(\.\d+)?\b', _replacer, text)  # Replace all numbers in text
 
 # ─── Voice output ─────────────────────────────────────────────────────────────── #
 # Function to speak a Hindi text string aloud using gTTS and pygame              # Description comment
@@ -95,7 +167,8 @@ def speak(text):  # Define function to convert Hindi text to speech and play it
         return  # Exit early and rely on printed text if audio is not available
     tmp_path = None  # Initialize temporary file path variable to None
     try:  # Start try block for TTS generation and audio playback
-        tts = gTTS(text=text, lang='hi', slow=False)  # Create Hindi TTS audio object from input text
+        spoken_text = format_numbers_for_hindi_speech(text)  # Convert digits (e.g. 500) to Hindi words ('पाँच सौ')
+        tts = gTTS(text=spoken_text, lang='hi', slow=False)  # Create Hindi TTS audio object with authentic Hindi words
         with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:  # Create temp MP3 file
             tmp_path = tmp.name  # Store the temporary file path for later playback and cleanup
         tts.save(tmp_path)  # Save generated speech audio to the temporary MP3 file
@@ -137,12 +210,19 @@ def detect_yes_no(text):  # Define function to classify a voice response as yes,
     if not text:  # Check if the text is None or empty string
         return 'unknown'  # Return unknown if no text was captured
     lower = text.lower().strip()  # Convert to lowercase and strip whitespace for reliable matching
-    for word in YES_WORDS:  # Iterate through all known yes-words
-        if word in lower:  # Check if the yes-word appears anywhere in the spoken response
-            return 'yes'  # Return yes if any confirmation word is found
-    for word in NO_WORDS:  # Iterate through all known no-words
-        if word in lower:  # Check if the no-word appears anywhere in the spoken response
-            return 'no'  # Return no if any cancellation word is found
+    # Strip punctuation so that 'Ah!', 'Haan.', or 'Nahi?' normalize cleanly without symbols # Cleaning step
+    cleaned = re.sub(r'[^\w\s\u0900-\u097F]', ' ', lower).strip()  # Remove punctuation preserving Hindi unicode
+    tokens = set(cleaned.split())  # Split cleaned string into individual word tokens
+    for phrase in YES_WORDS:  # Iterate through all known yes-words and phrases
+        if ' ' in phrase and phrase in cleaned:  # Check multi-word phrase matching directly in text
+            return 'yes'  # Return yes if matching confirmation phrase is found
+        elif phrase in tokens or phrase == cleaned:  # Check single word in tokens or exact match
+            return 'yes'  # Return yes if confirmation word is found
+    for phrase in NO_WORDS:  # Iterate through all known no-words and phrases
+        if ' ' in phrase and phrase in cleaned:  # Check multi-word cancellation phrase directly
+            return 'no'  # Return no if matching cancellation phrase is found
+        elif phrase in tokens or phrase == cleaned:  # Check single word in tokens or exact match
+            return 'no'  # Return no if cancellation token is found
     return 'unknown'  # Return unknown if neither yes nor no words were found
 
 # ─── Amount extractor for follow-up ──────────────────────────────────────────── #

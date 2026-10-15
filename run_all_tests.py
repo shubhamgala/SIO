@@ -118,13 +118,17 @@ def test_module_dialogue():  # Define Dialogue Manager test suite
     print("=" * 75)  # Section header border
     from Backend.dialogue_manager import (  # Import DM utilities
         detect_yes_no, extract_amount_from_text, extract_recipient_from_text,
-        extract_bill_type_from_text, build_confirmation_message, REQUIRED_SLOTS
+        extract_bill_type_from_text, build_confirmation_message, REQUIRED_SLOTS,
+        int_to_hindi, format_numbers_for_hindi_speech  # Import Hindi speech number converter utilities
     )  # End of imports
     
     # Test TC-DM-01 to 05: Confirmation word detection
     record_test("TC-DM-01", "Dialogue", "Detect Hindi 'haan' as confirmation", "yes", detect_yes_no("haan kar do"), detect_yes_no("haan kar do") == "yes")  # Test
+    record_test("TC-DM-01b", "Dialogue", "Detect Whisper phonetics 'Ah!' as confirmation", "yes", detect_yes_no("Ah!"), detect_yes_no("Ah!") == "yes")  # Test
+    record_test("TC-DM-01c", "Dialogue", "Detect Devanagari 'हाँ' as confirmation", "yes", detect_yes_no("हाँ"), detect_yes_no("हाँ") == "yes")  # Test
     record_test("TC-DM-02", "Dialogue", "Detect English 'yes' as confirmation", "yes", detect_yes_no("yes please confirm"), detect_yes_no("yes please confirm") == "yes")  # Test
     record_test("TC-DM-03", "Dialogue", "Detect Hindi 'nahi' as cancellation", "no", detect_yes_no("nahi mat karo"), detect_yes_no("nahi mat karo") == "no")  # Test
+    record_test("TC-DM-03b", "Dialogue", "Detect Devanagari 'नहीं' as cancellation", "no", detect_yes_no("नहीं"), detect_yes_no("नहीं") == "no")  # Test
     record_test("TC-DM-04", "Dialogue", "Detect English 'cancel' as cancellation", "no", detect_yes_no("cancel this payment"), detect_yes_no("cancel this payment") == "no")  # Test
     record_test("TC-DM-05", "Dialogue", "Unclear input classified as unknown", "unknown", detect_yes_no("random text"), detect_yes_no("random text") == "unknown")  # Test
     
@@ -152,6 +156,18 @@ def test_module_dialogue():  # Define Dialogue Manager test suite
     
     slots_ok = REQUIRED_SLOTS["Fund Transfer"] == ["recipient", "amount"] and REQUIRED_SLOTS["Balance Enquiry"] == []  # Check
     record_test("TC-DM-12", "Dialogue", "Verify required slot definitions for intents", True, slots_ok, slots_ok)  # Test
+    
+    # Test TC-DM-13 to 15: Hindi number to words spoken converter
+    h_500 = int_to_hindi(500)  # Convert 500 to Hindi words
+    record_test("TC-DM-13", "Dialogue", "Convert 500 to authentic Hindi 'पाँच सौ'", "पाँच सौ", h_500, h_500 == "पाँच सौ")  # Test
+    
+    spoken_prompt = format_numbers_for_hindi_speech("Kya aap Raju ko 500 rupaye bhejna chahte hain?")  # Spoken prompt
+    prompt_ok = "पाँच सौ" in spoken_prompt and "500" not in spoken_prompt  # Check conversion
+    record_test("TC-DM-14", "Dialogue", "TTS preprocessor converts 500 to 'पाँच सौ' in confirmation prompt", True, prompt_ok, prompt_ok)  # Test
+    
+    spoken_bal = format_numbers_for_hindi_speech("Aapka balance 25,000.00 rupaye hai.")  # Spoken ledger balance
+    bal_ok = "पच्चीस हज़ार" in spoken_bal and "25,000" not in spoken_bal  # Check ledger conversion
+    record_test("TC-DM-15", "Dialogue", "TTS preprocessor converts 25,000.00 to 'पच्चीस हज़ार' in balance prompt", True, bal_ok, bal_ok)  # Test
 
 # ── Module 4 Tests: Biometric Authentication Configuration & Storage ─────────── #
 def test_module_auth():  # Define Auth module test suite
