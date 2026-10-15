@@ -38,8 +38,10 @@ _MODEL_CACHE: Optional[Tuple[Optional[Any], Optional[Any]]] = None  # Cache mode
 KEYWORD_DICTIONARY = {  # Dictionary mapping each intent category to multilingual keywords
     "Balance Enquiry": [  # Keywords and phrases indicating a balance enquiry query
         "balance", "account balance", "check balance", "how much money", "funds", "remaining",  # English keywords
-        "बैलेंस", "खाता", "खाते में", "कितने पैसे", "रुपये हैं", "रकम", "शेष राशि", "राशि",  # Hindi keywords
-        "बैलेंस बताओ", "बैलेंस चेक", "बैलेंस देखना", "पैसे देखने", "खाता चेक", "पैसे कितने",  # Common Hindi requests
+        "बैलेंस", "बेलेंस", "बैलेन्स", "बेलेन्स", "बैलंस", "खाता", "खाते में", "कितने पैसे",  # Hindi keywords and Whisper phonetic variations
+        "रुपये हैं", "रकम", "शेष राशि", "राशि", "कितना है", "कितने पैसे हैं", "पैसे कितने हैं",  # Hindi balance status phrases
+        "बैलेंस बताओ", "बेलेंस बताओ", "बैलेंस चेक", "बैलेंस देखना", "पैसे देखने", "खाता चेक",  # Common Hindi requests
+        "बेलेंस कितना", "बैलेंस कितना", "कितना बैलेंस", "कितना बेलेंस", "कितना पैसा है", "बाकी पैसे",  # Common spoken Hindi combinations
         "balance kitna", "paise kitne", "account me kitna", "paisa dekhna", "kitne rupaye",  # Hinglish keywords
         "kitna paisa", "balance check", "khata balance", "balance batao", "paise batao",  # Additional Hinglish
     ],  # End of Balance Enquiry keyword list
@@ -130,8 +132,8 @@ def extract_entities(text: str) -> Dict[str, Optional[Any]]:  # Define entity ex
         stopwords = {  # Words to filter out from recipient names
             "bank", "account", "paise", "paisa", "rupees", "khata", "mujhe", "kisi", "card",  # Noise words
             "rs", "inr", "the", "my", "please", "karo", "karna", "dena", "send", "pay", "bhejo",  # Noise words
-            "बैलेंस", "खाता", "पैसे", "रुपये", "एटीएम", "मदद", "बिल", "फोन", "नंबर", "ko", "को",  # Hindi noise words
-            "भेजना", "भेजने", "डालना", "डालो", "सेंड", "नमस्ते", "हेलो",  # Common action verbs
+            "बैलेंस", "बेलेंस", "बैलेन्स", "बेलेन्स", "खाता", "पैसे", "रुपये", "एटीएम", "मदद", "बिल", "फोन", "नंबर", "ko", "को",  # Hindi noise words
+            "भेजना", "भेजने", "डालना", "डालो", "सेंड", "नमस्ते", "हेलो", "कितना", "कितने", "बताओ",  # Common action verbs and interrogatives
         }  # End of stopwords set
         # Pattern 1: Monetary amount (₹, Rs, INR, रुपये, or numbers)
         is_transaction_count = bool(re.search(r'\b(?:last|past|previous|पिछला|पिछले|pichle)\s+\d+', text, flags=re.IGNORECASE))  # Check count

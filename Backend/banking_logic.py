@@ -24,6 +24,8 @@ DB_PATH = os.path.join(DATA_DIR, "sio_banking.db")  # Full path to the SQLite ba
 
 # Default primary user account identifier used across SIO sessions                # Description comment
 DEFAULT_ACCOUNT_NUM = "SB-8839201452"  # Standard mock savings bank account number
+SEP_LINE = "=" * 65  # 65-character wide solid divider for receipt cards
+DIV_LINE = "-" * 65  # 65-character wide dashed divider for receipt cards
 
 # Function to get an active SQLite database connection with row dictionary access # Description comment
 def get_db_connection():  # Define database connection factory function
@@ -170,14 +172,14 @@ def check_balance(account_number: str = DEFAULT_ACCOUNT_NUM) -> Dict[str, Any]: 
     acc_masked = "XXXX-" + account_number[-4:]  # Mask account number for security
     speech = f"Namaste {holder}. Aapke {row['account_type']} mein kul balance {balance:,.2f} rupaye hai."  # Hindi response
     display = (  # Build clean visual display card
-        "\n" + "=" * 65 + "\n"
-        "                  BANK ACCOUNT BALANCE ENQUIRY\n"
-        "=" * 65 + "\n"
-        f" Account Holder   : {holder}\n"
-        f" Account Number   : {acc_masked}\n"
-        f" Account Type     : {row['account_type']}\n"
-        f" Available Balance: ₹{balance:,.2f}\n"
-        "=" * 65 + "\n"
+        f"\n{SEP_LINE}\n"  # Top border
+        f"                  BANK ACCOUNT BALANCE ENQUIRY\n"  # Card title
+        f"{SEP_LINE}\n"  # Separator line
+        f" Account Holder   : {holder}\n"  # Holder name line
+        f" Account Number   : {acc_masked}\n"  # Masked account number line
+        f" Account Type     : {row['account_type']}\n"  # Account type line
+        f" Available Balance: ₹{balance:,.2f}\n"  # Balance line
+        f"{SEP_LINE}\n"  # Bottom border
     )  # End of display card
     return {  # Return structured balance result
         "status": "success", "balance": balance, "holder": holder,  # Metadata
@@ -217,18 +219,18 @@ def transfer_funds(recipient_name: str, amount: float, account_number: str = DEF
     conn.close()  # Close connection
     speech = f"{recipient_name} ko {amount:,.0f} rupaye bhej diye gaye hain. Aapka purana balance {balance_before:,.2f} rupaye tha, ab naya balance {balance_after:,.2f} rupaye hai."  # Voice summary
     display = (  # Build formal transaction receipt card
-        "\n" + "=" * 65 + "\n"
-        "             FUNDS TRANSFER RECEIPT (COMPLETED)\n"
-        "=" * 65 + "\n"
-        f" Transaction ID   : {txn_id}\n"
-        f" Date & Time      : {now_str}\n"
-        f" Beneficiary Name : {recipient_name}\n"
-        f" Transferred Amount: ₹{amount:,.2f}\n"
-        "-" * 65 + "\n"
-        f" Balance BEFORE   : ₹{balance_before:,.2f}\n"
-        f" Balance AFTER    : ₹{balance_after:,.2f}  (Debited)\n"
-        f" Status           : SUCCESSFUL ✓\n"
-        "=" * 65 + "\n"
+        f"\n{SEP_LINE}\n"  # Top border
+        f"             FUNDS TRANSFER RECEIPT (COMPLETED)\n"  # Receipt title
+        f"{SEP_LINE}\n"  # Header separator
+        f" Transaction ID   : {txn_id}\n"  # Transaction ID row
+        f" Date & Time      : {now_str}\n"  # Timestamp row
+        f" Beneficiary Name : {recipient_name}\n"  # Beneficiary name row
+        f" Transferred Amount: ₹{amount:,.2f}\n"  # Amount row
+        f"{DIV_LINE}\n"  # Section divider
+        f" Balance BEFORE   : ₹{balance_before:,.2f}\n"  # Balance before row
+        f" Balance AFTER    : ₹{balance_after:,.2f}  (Debited)\n"  # Balance after row
+        f" Status           : SUCCESSFUL ✓\n"  # Status row
+        f"{SEP_LINE}\n"  # Bottom border
     )  # End of receipt card
     return {  # Return success result
         "status": "success", "txn_id": txn_id, "amount": amount, "recipient": recipient_name,  # Transfer details
@@ -296,17 +298,17 @@ def execute_mobile_recharge(amount: float, phone: str = "9876543210", account_nu
     conn.close()  # Close
     speech = f"Mobile number {phone} par {amount:,.0f} rupaye ka recharge safal raha. Purana balance {balance_before:,.2f} tha, naya balance {balance_after:,.2f} rupaye hai."  # Speech
     display = (  # Receipt display
-        "\n" + "=" * 65 + "\n"
-        "              MOBILE RECHARGE RECEIPT\n"
-        "=" * 65 + "\n"
-        f" Mobile Number    : {phone}\n"
-        f" Recharge Amount  : ₹{amount:,.2f}\n"
-        f" Transaction ID   : {txn_id}\n"
-        "-" * 65 + "\n"
-        f" Balance BEFORE   : ₹{balance_before:,.2f}\n"
-        f" Balance AFTER    : ₹{balance_after:,.2f}\n"
-        f" Status           : SUCCESSFUL ✓\n"
-        "=" * 65 + "\n"
+        f"\n{SEP_LINE}\n"  # Top border
+        f"              MOBILE RECHARGE RECEIPT\n"  # Title
+        f"{SEP_LINE}\n"  # Separator
+        f" Mobile Number    : {phone}\n"  # Mobile number line
+        f" Recharge Amount  : ₹{amount:,.2f}\n"  # Amount line
+        f" Transaction ID   : {txn_id}\n"  # Transaction ID line
+        f"{DIV_LINE}\n"  # Section divider
+        f" Balance BEFORE   : ₹{balance_before:,.2f}\n"  # Balance before
+        f" Balance AFTER    : ₹{balance_after:,.2f}\n"  # Balance after
+        f" Status           : SUCCESSFUL ✓\n"  # Status line
+        f"{SEP_LINE}\n"  # Bottom border
     )  # End of display
     return {"status": "success", "balance_before": balance_before, "balance_after": balance_after, "speech": speech, "display": display}  # Return
 
@@ -336,18 +338,18 @@ def pay_utility_bill(bill_type: str = "Electricity", amount: Optional[float] = N
     conn.close()  # Close
     speech = f"{provider} ka {bill_type} bill {bill_amount:,.0f} rupaye safalta se bhar diya gaya hai. Purana balance {balance_before:,.2f} tha, naya balance {balance_after:,.2f} rupaye hai."  # Speech
     display = (  # Receipt display
-        "\n" + "=" * 65 + "\n"
-        f"             UTILITY BILL PAYMENT RECEIPT\n"
-        "=" * 65 + "\n"
-        f" Bill Category    : {bill_type}\n"
-        f" Biller Provider  : {provider}\n"
-        f" Bill Amount Paid : ₹{bill_amount:,.2f}\n"
-        f" Transaction ID   : {txn_id}\n"
-        "-" * 65 + "\n"
-        f" Balance BEFORE   : ₹{balance_before:,.2f}\n"
-        f" Balance AFTER    : ₹{balance_after:,.2f}\n"
-        f" Status           : PAID & COMPLETED ✓\n"
-        "=" * 65 + "\n"
+        f"\n{SEP_LINE}\n"  # Top border
+        f"             UTILITY BILL PAYMENT RECEIPT\n"  # Title
+        f"{SEP_LINE}\n"  # Separator
+        f" Bill Category    : {bill_type}\n"  # Category
+        f" Biller Provider  : {provider}\n"  # Provider
+        f" Bill Amount Paid : ₹{bill_amount:,.2f}\n"  # Amount
+        f" Transaction ID   : {txn_id}\n"  # TXN ID
+        f"{DIV_LINE}\n"  # Section divider
+        f" Balance BEFORE   : ₹{balance_before:,.2f}\n"  # Balance before
+        f" Balance AFTER    : ₹{balance_after:,.2f}\n"  # Balance after
+        f" Status           : PAID & COMPLETED ✓\n"  # Status
+        f"{SEP_LINE}\n"  # Bottom border
     )  # End of receipt
     return {"status": "success", "balance_before": balance_before, "balance_after": balance_after, "speech": speech, "display": display}  # Return
 
@@ -387,27 +389,27 @@ def handle_help_and_security(action_type: str = "general", account_number: str =
         conn.close()  # Close
         speech = f"Suraksha ke liye aapka Debit Card turant block kar diya gaya hai. Kripya naye card ke liye helpline 1800 120 4000 par sampark karein."  # Speech
         display = (  # Display card
-            "\n" + "=" * 65 + "\n"
-            "         EMERGENCY SECURITY ACTION: DEBIT CARD BLOCKED\n"
-            "=" * 65 + "\n"
-            f" Card Number      : {card_num}\n"
-            f" Current Status   : BLOCKED (HOTLISTED) 🔒\n"
-            f" Reason           : User reported lost / fraud concern\n"
-            f" 24x7 Helpline    : 1800-120-4000 (Toll-Free)\n"
-            "=" * 65 + "\n"
+            f"\n{SEP_LINE}\n"  # Top border
+            f"         EMERGENCY SECURITY ACTION: DEBIT CARD BLOCKED\n"  # Title
+            f"{SEP_LINE}\n"  # Separator
+            f" Card Number      : {card_num}\n"  # Card number line
+            f" Current Status   : BLOCKED (HOTLISTED) 🔒\n"  # Status line
+            f" Reason           : User reported lost / fraud concern\n"  # Reason line
+            f" 24x7 Helpline    : 1800-120-4000 (Toll-Free)\n"  # Helpline line
+            f"{SEP_LINE}\n"  # Bottom border
         )  # End of display
         return {"status": "card_blocked", "speech": speech, "display": display}  # Return
     conn.close()  # Close connection
     speech = "Aap SIO 24 ghante customer helpline 1800 120 4000 par call kar sakte hain. Bank sahayak aapki poori madad karenge."  # General help speech
     display = (  # Help display
-        "\n" + "=" * 65 + "\n"
-        "                  SIO CUSTOMER ASSISTANCE & HELP\n"
-        "=" * 65 + "\n"
-        " Toll-Free Helpline: 1800-120-4000 (Available 24x7)\n"
-        " Senior Citizen Care: Press 1 for Senior Priority Desk\n"
-        " Email Support     : support@siobank.in\n"
-        " Emergency Services: Block Card, Report Fraud, Stop Cheque\n"
-        "=" * 65 + "\n"
+        f"\n{SEP_LINE}\n"  # Top border
+        f"                  SIO CUSTOMER ASSISTANCE & HELP\n"  # Title
+        f"{SEP_LINE}\n"  # Separator
+        f" Toll-Free Helpline: 1800-120-4000 (Available 24x7)\n"  # Toll-free helpline line
+        f" Senior Citizen Care: Press 1 for Senior Priority Desk\n"  # Senior desk line
+        f" Email Support     : support@siobank.in\n"  # Email support line
+        f" Emergency Services: Block Card, Report Fraud, Stop Cheque\n"  # Emergency services line
+        f"{SEP_LINE}\n"  # Bottom border
     )  # End of display
     return {"status": "help_provided", "speech": speech, "display": display}  # Return
 

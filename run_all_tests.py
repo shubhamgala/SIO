@@ -80,6 +80,7 @@ def test_module_nlp():  # Define NLP test suite function
     # Test cases mapping: (id, query, expected_intent, expected_amount, expected_recipient)
     nlp_cases = [  # List of intent and entity test cases
         ("TC-NLP-01", "मेरा बैलेंस बताओ", "Balance Enquiry", None, None),  # Hindi balance
+        ("TC-NLP-01b", "मेरा बेलेंस कितना है?", "Balance Enquiry", None, None),  # Whisper phonetic balance
         ("TC-NLP-02", "What is my account balance?", "Balance Enquiry", None, None),  # English balance
         ("TC-NLP-03", "Mera balance kitna hai batao", "Balance Enquiry", None, None),  # Hinglish balance
         ("TC-NLP-04", "खाते में कितने पैसे हैं", "Balance Enquiry", None, None),  # Hindi colloquial balance
@@ -219,6 +220,12 @@ def test_module_banking():  # Define Core Banking test suite
     )  # End of imports
     
     init_banking_database()  # Ensure database tables and initial seed data exist
+    # Reset test account balance to ₹25,000 and card status to ACTIVE for reproducibility # Test setup
+    test_conn = get_db_connection()  # Open test database connection
+    test_cursor = test_conn.cursor()  # Create cursor
+    test_cursor.execute("UPDATE accounts SET balance = 25000.0, card_status = 'ACTIVE' WHERE account_number = ?", (DEFAULT_ACCOUNT_NUM,))  # Reset test funds
+    test_conn.commit()  # Commit reset balance
+    test_conn.close()  # Close test connection
     
     # Test TC-BANK-01: Check Balance query returns positive balance
     bal_res = check_balance(DEFAULT_ACCOUNT_NUM)  # Query account balance
@@ -228,14 +235,16 @@ def test_module_banking():  # Define Core Banking test suite
     # Test TC-BANK-02: Fund Transfer with Before and After Balance Verification
     init_bal = check_balance(DEFAULT_ACCOUNT_NUM)["balance"]  # Check starting balance
     tx_res = transfer_funds("Raju", 500.0, DEFAULT_ACCOUNT_NUM)  # Send ₹500 to Raju
-    tx_ok = (  # Check transfer math
-        tx_res["status"] == "success" and
-        tx_res["amount"] == 500.0 and
-        tx_res["balance_before"] == init_bal and
-        abs(tx_res["balance_after"] - (init_bal - 500.0)) < 0.01 and
-        "Raju" in tx_res["recipient"]
+    tx_ok = (  # Check transfer math and clean receipt formatting
+        tx_res["status"] == "success" and  # Success status
+        tx_res["amount"] == 500.0 and  # Amount matched
+        tx_res["balance_before"] == init_bal and  # Before balance matched
+        abs(tx_res["balance_after"] - (init_bal - 500.0)) < 0.01 and  # Math verified
+        "Raju" in tx_res["recipient"] and  # Recipient verified
+        tx_res["display"].count("FUNDS TRANSFER RECEIPT") == 1 and  # Receipt header appears exactly once
+        len(tx_res["display"]) < 1000  # Receipt card is compact and not bloated by operator multiplication
     )  # End of transfer condition
-    record_test("TC-BANK-02", "Banking", "Transfer ₹500 to Raju validates Balance BEFORE - 500 == AFTER", True, tx_ok, tx_ok)  # Test
+    record_test("TC-BANK-02", "Banking", "Transfer ₹500 to Raju validates Balance BEFORE - 500 == AFTER and clean receipt", True, tx_ok, tx_ok)  # Test
     
     # Test TC-BANK-03: Insufficient Funds handling
     insuf_res = transfer_funds("Amit", 99999999.0, DEFAULT_ACCOUNT_NUM)  # Try transferring huge amount
