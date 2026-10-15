@@ -131,16 +131,28 @@ def extract_entities(text: str) -> Dict[str, Optional[Any]]:  # Define entity ex
     entities = {  # Initialize dictionary to store extracted entity values
         "amount": None,  # Extracted monetary transaction amount
         "recipient": None,  # Extracted recipient beneficiary name
+        "bill_type": None,  # Extracted utility bill category (Electricity, Water, Gas, Phone)
     }  # End of entities dictionary
     try:  # Start try block to handle entity extraction safely
         if not text or not isinstance(text, str):  # Check if input text is empty or invalid
             return entities  # Return empty entities dictionary if text is not valid
+        # Pattern 0: Utility bill type detection in query text                         # Comment
+        text_lower = text.lower()  # Lowercase text for matching
+        if any(w in text_lower for w in ["bijli", "electricity", "light", "current", "बिजली", "विद्युत"]):  # Electricity
+            entities["bill_type"] = "Electricity"  # Assign Electricity bill category
+        elif any(w in text_lower for w in ["paani", "water", "jal", "पानी", "जल"]):  # Water
+            entities["bill_type"] = "Water"  # Assign Water bill category
+        elif any(w in text_lower for w in ["gas", "lpg", "cylinder", "गैस"]):  # Gas
+            entities["bill_type"] = "Gas"  # Assign Gas bill category
+        elif any(w in text_lower for w in ["broadband", "landline", "telephone", "इंटरनेट"]):  # Telecom
+            entities["bill_type"] = "Phone"  # Assign Phone bill category
         stopwords = {  # Words to filter out from recipient names
             "bank", "account", "paise", "paisa", "rupees", "khata", "mujhe", "kisi", "card",  # Noise words
             "rs", "inr", "the", "my", "please", "karo", "karna", "dena", "send", "pay", "bhejo",  # Noise words
             "बैलेंस", "बेलेंस", "बैलेन्स", "बेलेन्स", "खाता", "पैसे", "रुपये", "एटीएम", "मदद", "बिल", "फोन", "फ़ोन", "नंबर", "ko", "को",  # Hindi noise words
             "भेजना", "भेजने", "डालना", "डालो", "सेंड", "नमस्ते", "हेलो", "कितना", "कितने", "बताओ",  # Common action verbs and interrogatives
             "रिचार्ज", "रीचार्ज", "रिचारज", "रीचारज", "recharge",  # Recharge terms to prevent recipient mismatch
+            "electricity", "water", "gas", "bill", "bijli", "बिजली", "पानी", "गैस",  # Bill terms to prevent recipient mismatch
         }  # End of stopwords set
         # Pattern 1: Monetary amount (₹, Rs, INR, रुपये, or numbers)
         is_transaction_count = bool(re.search(r'\b(?:last|past|previous|पिछला|पिछले|pichle)\s+\d+', text, flags=re.IGNORECASE))  # Check count
