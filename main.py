@@ -24,18 +24,36 @@ from Backend.dialogue_manager import run_dialogue  # Import Module 3 dialogue ma
 from Backend.dialogue_manager import speak  # Import speech synthesis function to play confirmation audio
 from Backend.banking_logic import execute_banking_action  # Import unified banking dispatcher from Module 4
 from Backend.banking_logic import init_banking_database  # Import database initialization routine
+from Backend.security_gate import run_security_gate  # Import Multi-Factor Biometric Security Gate
 # ------------------------------------------------------------------------------ # Section separator comment
 # Master function to run the full voice-triggered banking assistant pipeline     # Description comment
 # ------------------------------------------------------------------------------ # Section separator comment
 def run_voice_pipeline():  # Define function to run end-to-end voice processing
     print("=" * 70)  # Print decorative top banner line
-    print("  SIO Voice Banking Assistant - Full Pipeline (STT → NLP → DM → Banking)  ")  # Title banner
+    print("  SIO Voice Banking Assistant - Full Pipeline (Security → STT → NLP → DM → Banking)  ")  # Title banner
     print("=" * 70)  # Print decorative divider line
     init_banking_database()  # Ensure database tables and dummy seed records are ready
     model = load_whisper_model()  # Initialize and load the Whisper STT model into memory
     if model is None:  # Check if Whisper model initialization failed
         print("[SIO Pipeline] Error: Whisper speech recognition model could not be loaded.")  # Error log
         return  # Terminate pipeline early if model is unavailable
+
+    # ── Step 0: Multi-Factor Biometric Security Gate (Face + Voice PIN + Liveness) ─ #
+    print("=" * 70)  # Section divider line
+    print(" [Step 0: Security] Starting Multi-Factor Biometric Security Gate...")  # Log start of security check
+    print("=" * 70)  # Section divider line
+    security_result = run_security_gate(user_id="user1", whisper_model=model)  # Execute 3-step security gate
+    if not security_result.get("authenticated", False):  # Check if user failed any of the 3 security steps
+        failure_reason = security_result.get("reason", "Unknown security rejection")  # Extract failure reason
+        print(f"\n[SIO Pipeline] ❌ ACCESS DENIED: {failure_reason}")  # Print failure alert
+        print("[SIO Pipeline] Security policy rejected access. Session terminated.\n")  # Log termination
+        speak("Suraksha jaanch viphal rahi. Access mana kiya gaya hai. Session samapt.")  # Speak Hindi rejection
+        return  # Abort entire pipeline immediately without executing any banking action
+
+    print("\n[SIO Pipeline] ✅ Multi-Factor Security Gate PASSED! User Identity Verified.")  # Success log
+    speak("Suraksha jaanch safal rahi. Aapka SIO banking assistant taiyar hai.")  # Speak Hindi welcome
+    print("=" * 70)  # Section divider line
+
     temp_audio_file = record_audio_to_wav()  # Record 5 seconds of live voice audio from user microphone
     if not temp_audio_file:  # Check if microphone recording failed or was aborted
         print("[SIO Pipeline] Error: Audio recording failed. Check microphone connection.")  # Error log

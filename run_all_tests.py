@@ -212,6 +212,26 @@ def test_module_auth():  # Define Auth module test suite
     except ValueError:  # Expected ValueError
         invalid_user_caught = True  # Caught
     record_test("TC-AUTH-03", "Auth", "Reject path traversal attack in user_id", True, invalid_user_caught, invalid_user_caught)  # Test
+    
+    # Test TC-AUTH-04: Security Gate Step 1 Face rejection when no face present
+    from Backend.security_gate import run_security_gate, verify_challenge_liveness_step  # Import Security Gate
+    blank_frame = np.zeros((100, 100, 3), dtype=np.uint8)  # Black frame with no face
+    gate_res_face_fail = run_security_gate(user_id="user1", simulated_inputs={"frame": blank_frame, "speak_prompt": False})  # Run gate
+    face_fail_ok = gate_res_face_fail["authenticated"] is False and gate_res_face_fail["failed_step"] == 1  # Verify step 1 fail
+    record_test("TC-AUTH-04", "Auth", "Security Gate rejects access when face is absent or mismatched", True, face_fail_ok, face_fail_ok)  # Test
+    
+    # Test TC-AUTH-05: Security Gate Step 3 Challenge-Response mismatch rejection
+    ch_fixed = {"phrase": "मेरा बैंक सुरक्षित है", "keywords": ["बैंक", "सुरक्षित", "bank"]}  # Fixed test challenge
+    ch_ok, ch_text, sp_text, ch_msg = verify_challenge_liveness_step(
+        simulated_response="random incorrect words", speak_prompt=False, challenge_override=ch_fixed
+    )  # Run challenge with wrong response
+    record_test("TC-AUTH-05", "Auth", "Security Gate rejects when spoken challenge does not match", True, ch_ok is False, ch_ok is False)  # Test
+    
+    # Test TC-AUTH-06: Security Gate Step 3 Challenge-Response success match
+    ch_pass_ok, _, _, _ = verify_challenge_liveness_step(
+        simulated_response="मेरा बैंक सुरक्षित है", speak_prompt=False, challenge_override=ch_fixed
+    )  # Run challenge with matching response
+    record_test("TC-AUTH-06", "Auth", "Security Gate confirms liveness when challenge phrase matches", True, ch_pass_ok is True, ch_pass_ok is True)  # Test
 
 # ── Module 5 Tests: Core Banking Engine & Database Ledger ─────────────────────── #
 def test_module_banking():  # Define Core Banking test suite

@@ -62,3 +62,6 @@ data/*.sqlite3
 models/*.onnx
 models/*.caffemodel
 embeddings/*.npy
+data/embeddings/*.npy
+auth.zip
+models/spkrec-ecapa-voxceleb/
