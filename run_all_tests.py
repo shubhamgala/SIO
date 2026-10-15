@@ -90,6 +90,8 @@ def test_module_nlp():  # Define NLP test suite function
         ("TC-NLP-08", "Send Raju 5000 rupees", "Fund Transfer", 5000, "Raju"),  # Direct send pattern
         ("TC-NLP-09", "मुझे पैसे भेजने हैं", "Fund Transfer", None, None),  # Hindi transfer intent without slots
         ("TC-NLP-10", "पिछला लेनदेन और स्टेटमेंट दिखाओ", "Transaction History", None, None),  # Hindi history
+        ("TC-NLP-10b", "पिछले लेन देन दिखाओ", "Transaction History", None, None),  # Hindi history with spaced len-den
+        ("TC-NLP-10c", "स्टेटमेंट दिखाओ", "Transaction History", None, None),  # Hindi statement request
         ("TC-NLP-11", "Show my last 5 transactions", "Transaction History", None, None),  # English history
         ("TC-NLP-12", "Phone me 199 ka recharge kar do", "Mobile Recharge", 199, None),  # Hinglish recharge
         ("TC-NLP-13", "Bijli ka bill bharna hai 1200", "Bill Payment", 1200, None),  # Hinglish bill payment

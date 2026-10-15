@@ -56,9 +56,13 @@ KEYWORD_DICTIONARY = {  # Dictionary mapping each intent category to multilingua
     ],  # End of Fund Transfer keyword list
     "Transaction History": [  # Keywords and phrases indicating a transaction statement query
         "transaction", "history", "statement", "passbook", "recent payments", "mini statement",  # English keywords
-        "लेनदेन", "इतिहास", "स्टेटमेंट", "पासबुक", "पिछला लेनदेन", "खर्च", "विवरण",  # Hindi keywords
+        "लेनदेन", "लेन देन", "लेन-देन", "लें देन", "लें-देन", "इतिहास", "स्टेटमेंट", "स्टेटमेन्ट", "पासबुक",  # Core Hindi keywords and spelling variants
+        "पिछला लेनदेन", "पिछला लेन देन", "पिछले लेनदेन", "पिछले लेन देन", "पिछला लेन-देन", "पिछले लेन-देन",  # Spoken past transaction phrases
+        "स्टेटमेंट दिखाओ", "स्टेटमेंट बताओ", "स्टेटमेंट देखना", "पासबुक दिखाओ", "पासबुक देखना", "खाता विवरण",  # Common Hindi requests
+        "ट्रांजैक्शन हिस्ट्री", "ट्रांजैक्शन दिखाओ", "ट्रांजेक्शन", "विवरण दिखाओ", "खर्च", "विवरण",  # Transliterated Hindi terms
         "history dikhao", "statement chahiye", "passbook update", "pichle transaction", "mini statement",  # Hinglish
         "last transaction", "kharch dekhna", "kahan kharch hua", "purane transaction",  # Additional Hinglish
+        "statement dikhao", "passbook dikhao", "pichhla lenden", "pichhle lenden",  # Transliterated Hindi variations
     ],  # End of Transaction History keyword list
     "Mobile Recharge": [  # Keywords and phrases indicating a mobile recharge query
         "recharge", "top up", "mobile pack", "phone recharge", "data pack", "prepaid recharge",  # English keywords

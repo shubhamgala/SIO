@@ -235,9 +235,9 @@ def transcribe_audio(model, wav_path):  # Define transcription function
     try:  # Start try block
         print("[SIO STT] Transcribing audio (Hindi / English / Hinglish)...")  # Inform user
         use_fp16 = torch.cuda.is_available()  # Check if CUDA GPU is available for FP16
-        multilingual_prompt = (  # Multilingual banking context prompt to guide Whisper
-            "नमस्ते, मेरा बैलेंस कितना है? राजू को 500 रुपये भेजो। फोन में 199 का रिचार्ज कर दो। बिजली का बिल भरना है। "  # Hindi banking context
-            "Hello, what is my account balance? Send 500 rupees to Raju. Phone mobile recharge 199."  # English context
+        multilingual_prompt = (  # Multilingual banking context prompt to guide Whisper across all 7 banking intents
+            "नमस्ते, मेरा बैलेंस कितना है? राजू को 500 रुपये भेजो। पिछला लेनदेन और स्टेटमेंट दिखाओ। फोन में 199 का रिचार्ज कर दो। बिजली का बिल भरना है। नजदीकी एटीएम कहां है? कस्टमर केयर से बात करनी है। "  # Hindi banking context for all services
+            "Hello, what is my account balance? Send 500 rupees to Raju. Show transaction history and statement. Phone mobile recharge 199. Pay electricity bill. Nearest ATM branch. Customer care help."  # English banking context
         )  # End of prompt string
         try:  # Try transcribing directly with file path
             result = model.transcribe(wav_path, task="transcribe", initial_prompt=multilingual_prompt, temperature=0.0, beam_size=5, fp16=use_fp16)  # Transcribe
@@ -252,7 +252,7 @@ def transcribe_audio(model, wav_path):  # Define transcription function
         # If an unexpected language like Telugu or Marathi is detected, force Hindi pass # Comment
         if detected_lang not in SUPPORTED_LANGUAGES:  # Check if detected language is not Hindi or English
             print(f"[SIO STT] Detected '{detected_lang}' — re-trying in Hindi...", flush=True)  # Inform user
-            hindi_prompt = "नमस्ते, मेरा बैलेंस कितना है? राजू को 500 रुपये भेजो। फोन में रिचार्ज कर दो। बिजली का बिल भरना है।"  # Hindi prompt
+            hindi_prompt = "नमस्ते, मेरा बैलेंस कितना है? राजू को 500 रुपये भेजो। पिछला लेनदेन और स्टेटमेंट दिखाओ। फोन में रिचार्ज कर दो। बिजली का बिल भरना है। नजदीकी एटीएम कहां है?"  # Hindi prompt covering all services
             result = model.transcribe(wav_path, language="hi", task="transcribe", initial_prompt=hindi_prompt, temperature=0.0, fp16=use_fp16)  # Retry in Hindi
             detected_lang = result.get("language", "hi")  # Update language
             transcribed_text = result.get("text", "").strip()  # Update text
