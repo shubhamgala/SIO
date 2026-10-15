@@ -62,9 +62,11 @@ KEYWORD_DICTIONARY = {  # Dictionary mapping each intent category to multilingua
     ],  # End of Transaction History keyword list
     "Mobile Recharge": [  # Keywords and phrases indicating a mobile recharge query
         "recharge", "top up", "mobile pack", "phone recharge", "data pack", "prepaid recharge",  # English keywords
-        "रिचार्ज", "मोबाइल रिचार्ज", "फोन रिचार्ज", "टॉकटाइम", "मोबाइल", "फोन",  # Hindi keywords
-        "mobile recharge", "phone me recharge", "recharge kar do", "number recharge", "recharge karna",  # Hinglish
-        "sim recharge", "recharge plan", "topup", "talktime",  # Additional Hinglish phrases
+        "रिचार्ज", "रीचार्ज", "रिचारज", "रीचारज", "मोबाइल रिचार्ज", "फोन रिचार्ज", "फ़ोन रिचार्ज",  # Hindi keywords and phonetic variations
+        "रिचार्ज करदो", "रिचारज करदो", "रिचार्ज करो", "रिचारज करो", "रिचार्ज कर दो", "रीचार्ज करदो",  # Common spoken Hindi action phrases
+        "फोन में रिचार्ज", "मोबाइल में रिचार्ज", "फ़ोन में रिचार्ज", "टॉकटाइम", "मोबाइल", "फोन", "फ़ोन",  # Hindi device terms
+        "mobile recharge", "phone me recharge", "recharge kar do", "number recharge", "recharge karna",  # Hinglish phrases
+        "sim recharge", "recharge plan", "topup", "talktime", "recharge kardo",  # Additional Hinglish phrases
     ],  # End of Mobile Recharge keyword list
     "Bill Payment": [  # Keywords and phrases indicating a utility bill payment query
         "bill", "electricity bill", "water bill", "gas bill", "utility", "pay bill", "power bill",  # English keywords
@@ -132,8 +134,9 @@ def extract_entities(text: str) -> Dict[str, Optional[Any]]:  # Define entity ex
         stopwords = {  # Words to filter out from recipient names
             "bank", "account", "paise", "paisa", "rupees", "khata", "mujhe", "kisi", "card",  # Noise words
             "rs", "inr", "the", "my", "please", "karo", "karna", "dena", "send", "pay", "bhejo",  # Noise words
-            "बैलेंस", "बेलेंस", "बैलेन्स", "बेलेन्स", "खाता", "पैसे", "रुपये", "एटीएम", "मदद", "बिल", "फोन", "नंबर", "ko", "को",  # Hindi noise words
+            "बैलेंस", "बेलेंस", "बैलेन्स", "बेलेन्स", "खाता", "पैसे", "रुपये", "एटीएम", "मदद", "बिल", "फोन", "फ़ोन", "नंबर", "ko", "को",  # Hindi noise words
             "भेजना", "भेजने", "डालना", "डालो", "सेंड", "नमस्ते", "हेलो", "कितना", "कितने", "बताओ",  # Common action verbs and interrogatives
+            "रिचार्ज", "रीचार्ज", "रिचारज", "रीचारज", "recharge",  # Recharge terms to prevent recipient mismatch
         }  # End of stopwords set
         # Pattern 1: Monetary amount (₹, Rs, INR, रुपये, or numbers)
         is_transaction_count = bool(re.search(r'\b(?:last|past|previous|पिछला|पिछले|pichle)\s+\d+', text, flags=re.IGNORECASE))  # Check count

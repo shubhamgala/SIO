@@ -343,7 +343,10 @@ def run_dialogue(nlp_result, whisper_model):  # Define the main dialogue loop fu
             if entities.get(slot):  # Check if this slot already has a value from Module 2
                 continue  # Skip to next slot if this one is already filled
             # Slot is missing — ask the user a follow-up voice question             # Comment
-            question = FOLLOWUP_QUESTIONS.get(slot, f'Please provide your {slot}.')  # Get follow-up question
+            if slot == 'amount' and intent == 'Mobile Recharge':  # Check if asking amount for mobile recharge
+                question = 'Aap kitne rupaye ka recharge karna chahte hain?'  # Ask specific recharge amount
+            else:  # Standard question lookup
+                question = FOLLOWUP_QUESTIONS.get(slot, f'Please provide your {slot}.')  # Get follow-up question
             print(f'\n[SIO DM] Missing slot: "{slot}" — asking follow-up question...')  # Log missing slot
             speak(question)  # Speak the follow-up question aloud in Hindi
             print('[SIO DM] Listening for your answer...')  # Inform user we are listening

@@ -194,8 +194,8 @@ def transcribe_audio(model, wav_path):  # Define transcription function
         print("[SIO STT] Transcribing audio (Hindi / English / Hinglish)...")  # Inform user
         use_fp16 = torch.cuda.is_available()  # Check if CUDA GPU is available for FP16
         multilingual_prompt = (  # Multilingual banking context prompt to guide Whisper
-            "नमस्ते, मेरा बैलेंस कितना है? राजू को 500 रुपये भेजो। "  # Hindi banking context
-            "Hello, what is my account balance? Send 500 rupees to Raju. Mobile recharge."  # English context
+            "नमस्ते, मेरा बैलेंस कितना है? राजू को 500 रुपये भेजो। फोन में 199 का रिचार्ज कर दो। बिजली का बिल भरना है। "  # Hindi banking context
+            "Hello, what is my account balance? Send 500 rupees to Raju. Phone mobile recharge 199."  # English context
         )  # End of prompt string
         try:  # Try transcribing directly with file path
             result = model.transcribe(wav_path, task="transcribe", initial_prompt=multilingual_prompt, temperature=0.0, beam_size=5, fp16=use_fp16)  # Transcribe
@@ -207,11 +207,11 @@ def transcribe_audio(model, wav_path):  # Define transcription function
             result = model.transcribe(float_data, task="transcribe", initial_prompt=multilingual_prompt, temperature=0.0, beam_size=5, fp16=use_fp16)  # Transcribe
         detected_lang = result.get("language", "unknown")  # Retrieve detected language
         transcribed_text = result.get("text", "").strip()  # Retrieve transcribed text
-        # If an unexpected language detected fallback to forcing Hindi pass       # Comment
-        if detected_lang not in SUPPORTED_LANGUAGES and len(transcribed_text) < 3:  # Check condition
-            print(f"[SIO STT] Detected '{detected_lang}' — re-trying in Hindi...")  # Inform user
-            hindi_prompt = "नमस्ते, मेरा खाता, बैलेंस, पैसे ट्रांसफर, रिचार्ज, बिल।"  # Hindi prompt
-            result = model.transcribe(wav_path, language="hi", task="transcribe", initial_prompt=hindi_prompt, temperature=0.2, fp16=use_fp16)  # Retry
+        # If an unexpected language like Telugu or Marathi is detected, force Hindi pass # Comment
+        if detected_lang not in SUPPORTED_LANGUAGES:  # Check if detected language is not Hindi or English
+            print(f"[SIO STT] Detected '{detected_lang}' — re-trying in Hindi...", flush=True)  # Inform user
+            hindi_prompt = "नमस्ते, मेरा बैलेंस कितना है? राजू को 500 रुपये भेजो। फोन में रिचार्ज कर दो। बिजली का बिल भरना है।"  # Hindi prompt
+            result = model.transcribe(wav_path, language="hi", task="transcribe", initial_prompt=hindi_prompt, temperature=0.0, fp16=use_fp16)  # Retry in Hindi
             detected_lang = result.get("language", "hi")  # Update language
             transcribed_text = result.get("text", "").strip()  # Update text
         transcribed_text = post_process_transcription(transcribed_text)  # Apply post-processing cleaner
