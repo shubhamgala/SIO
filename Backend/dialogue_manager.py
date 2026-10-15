@@ -79,8 +79,9 @@ YES_WORDS = {  # Set of words across languages that indicate user confirmation
     'haan', 'ha', 'han', 'yes', 'yeah', 'yep', 'yup', 'correct',  # Hindi, Hinglish, English yes words
     'theek hai', 'theek', 'bilkul', 'zaroor', 'confirm', 'ok', 'okay',  # Additional agreement words
     'sahi', 'proceed', 'go ahead', 'kar do', 'bhej do', 'kardo', 'bhejdo',  # Action confirmation words
-    'ah', 'aah', 'haa', 'ji haan', 'haan ji', 'haanji', 'ji', 'jee',  # Whisper phonetics and polite Hindi terms
-    'हाँ', 'हां', 'हं', 'जी हाँ', 'जी हां', 'सही है', 'कर दो', 'भेज दो',  # Devanagari script affirmatives
+    'ah', 'aah', 'haa', 'ji haan', 'haan ji', 'haanji', 'ji', 'jee', 'hnn', 'hmmm',  # Whisper phonetics and polite terms
+    'हाँ', 'हां', 'हं', 'हा', 'जी हाँ', 'जी हां', 'हाँजी', 'हाजी', 'सही है', 'कर दो', 'भेज दो',  # Devanagari script affirmatives
+    'यस', 'ओके', 'यप',  # Transliterated English affirmatives
 }  # End of YES_WORDS set
 
 # Words in Hindi, Hinglish and English that mean NO — cancel the transaction     # Description comment
