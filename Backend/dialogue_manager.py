@@ -193,7 +193,7 @@ def listen_for_response(whisper_model, duration=5):  # Define function to record
         from STT.whisper_stt import record_audio_to_wav, transcribe_audio, remove_temporary_file  # Import STT tools
         wav_path = record_audio_to_wav()  # Record audio from the microphone (with 3-second countdown)
         if not wav_path:  # Check if recording failed or microphone is unavailable
-            print('[SIO DM] Warning: Could not record audio for follow-up response.')  # Warn user
+            print('[SIO DM] Warning: Could not record audio for follow-up response.', flush=True)  # Warn user
             return None  # Return None to signal that no response was captured
         try:  # Start inner try block to transcribe and clean up
             text, lang = transcribe_audio(whisper_model, wav_path)  # Transcribe the recorded response
@@ -201,8 +201,29 @@ def listen_for_response(whisper_model, duration=5):  # Define function to record
         finally:  # Ensure temporary audio file is always cleaned up
             remove_temporary_file(wav_path)  # Delete the temporary WAV file from disk
     except Exception as listen_err:  # Catch any unexpected error during voice capture
-        print(f'[SIO DM] Error during voice input: {listen_err}')  # Print error message
+        print(f'[SIO DM] Error during voice input: {listen_err}', flush=True)  # Print error message
         return None  # Return None so the dialogue can handle missing input gracefully
+
+# ─── Confirmation-specific voice input ───────────────────────────────────────── #
+# Dedicated function for recording YES/NO confirmations only (shorter, no echo)  # Description comment
+def listen_for_confirmation(whisper_model):  # Define specialized confirmation listener
+    try:  # Start try block
+        from STT.whisper_stt import record_audio_short, transcribe_confirmation, remove_temporary_file  # Import specialized tools
+        print('[SIO DM] Listening for Haan / Nahi...', flush=True)  # Inform user that confirmation is expected
+        wav_path = record_audio_short(duration=3)  # Record only 3 seconds (echo wait is inside record_audio_short)
+        if not wav_path:  # Check if recording failed
+            print('[SIO DM] Warning: Could not record confirmation.', flush=True)  # Warn user
+            return None  # Return None on failure
+        try:  # Start inner try block to transcribe
+            text, lang = transcribe_confirmation(whisper_model, wav_path)  # Transcribe forced to Hindi
+            print(f'[SIO DM] Confirmation heard: "{text}" (lang={lang})', flush=True)  # Log what was heard
+            return text.strip() if text else None  # Return cleaned text or None
+        finally:  # Always clean up temp file
+            remove_temporary_file(wav_path)  # Delete WAV file from disk
+    except Exception as conf_err:  # Catch any error
+        print(f'[SIO DM] Error during confirmation listen: {conf_err}', flush=True)  # Log error
+        return None  # Return None gracefully
+
 
 # ─── Yes / No detection ───────────────────────────────────────────────────────── #
 # Function to interpret a spoken response as YES, NO, or UNKNOWN                # Description comment
@@ -399,21 +420,21 @@ def run_dialogue(nlp_result, whisper_model):  # Define the main dialogue loop fu
                     }  # End of cancellation return
 
         # ── Step 2: Read back complete details and ask for confirmation ──────── #
-        print('\n[SIO DM] All required slots filled. Building confirmation...')  # Log slot completion
+        print('\n[SIO DM] All required slots filled. Building confirmation...', flush=True)  # Log slot completion
         confirmation_msg = build_confirmation_message(intent, entities)  # Build Hindi confirmation sentence
-        print(f'[SIO DM] Confirmation prompt: {confirmation_msg}')  # Log confirmation message text
+        print(f'[SIO DM] Confirmation prompt: {confirmation_msg}', flush=True)  # Log confirmation message text
         speak(confirmation_msg)  # Speak the full confirmation message aloud to the user
 
         # ── Step 3: Listen for Haan (yes) or Nahi (no) from the user ────────── #
         max_confirmation_attempts = 2  # Allow user up to 2 attempts to confirm or cancel
         for attempt in range(max_confirmation_attempts):  # Loop for up to 2 confirmation attempts
-            print(f'[SIO DM] Listening for confirmation (attempt {attempt + 1})...')  # Log attempt number
-            confirm_text = listen_for_response(whisper_model)  # Record user's confirmation response
-            print(f'[SIO DM] Confirmation response heard: "{confirm_text}"')  # Log what was heard
+            print(f'[SIO DM] Listening for confirmation (attempt {attempt + 1})...', flush=True)  # Log attempt
+            confirm_text = listen_for_confirmation(whisper_model)  # Use dedicated confirmation recorder (3s, Hindi forced, echo-safe)
+            print(f'[SIO DM] Confirmation response heard: "{confirm_text}"', flush=True)  # Log what was heard
             decision = detect_yes_no(confirm_text)  # Classify response as yes, no, or unknown
             if decision == 'yes':  # Check if user confirmed the transaction
                 speak('Theek hai! Aapka kaam ho raha hai.')  # Acknowledge and proceed with Hindi voice
-                print('\n[SIO DM] ✅ User CONFIRMED. Proceeding to banking action.')  # Log confirmation
+                print('\n[SIO DM] ✅ User CONFIRMED. Proceeding to banking action.', flush=True)  # Log confirmation
                 return {  # Return confirmed result dictionary
                     'status': 'confirmed',  # Mark status as confirmed
                     'intent': intent,  # Include the final intent
@@ -422,7 +443,7 @@ def run_dialogue(nlp_result, whisper_model):  # Define the main dialogue loop fu
                 }  # End of confirmed return
             elif decision == 'no':  # Check if user cancelled the transaction
                 speak('Theek hai, yeh kaam cancel kar diya gaya hai.')  # Acknowledge cancellation
-                print('\n[SIO DM] ❌ User CANCELLED. Aborting transaction.')  # Log cancellation
+                print('\n[SIO DM] ❌ User CANCELLED. Aborting transaction.', flush=True)  # Log cancellation
                 return {  # Return cancelled result dictionary
                     'status': 'cancelled',  # Mark status as cancelled
                     'intent': intent,  # Include the intent that was cancelled
@@ -435,6 +456,7 @@ def run_dialogue(nlp_result, whisper_model):  # Define the main dialogue loop fu
                 else:  # If this was the final attempt and still unclear
                     speak('Koi jawab nahi mila. Kaam cancel kar rahe hain.')  # Announce timeout
         # Fell through all attempts without a clear yes or no                    # Comment
+
         return {  # Return cancelled result due to timeout
             'status': 'cancelled',  # Mark status as cancelled
             'intent': intent,  # Include the intent

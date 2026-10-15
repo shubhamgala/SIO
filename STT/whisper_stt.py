@@ -162,6 +162,48 @@ def record_audio_to_wav():  # Define audio recording function
                 pass  # Continue
         return None  # Return None on failure
 
+# Function to record a short 3-second confirmation answer (Haan / Nahi)          # Description comment
+def record_audio_short(duration=3):  # Define short recording function for yes/no confirmations
+    device_id, dev_name = get_best_microphone_device()  # Find best active microphone device
+    temp_wav_path = None  # Initialize path variable
+    try:  # Start try block for recording
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:  # Create temp WAV file
+            temp_wav_path = tmp.name  # Store file path
+        time.sleep(0.8)  # Wait 800ms so speaker echo from TTS fully dies down before recording
+        print("[SIO STT] 🎙️  Bol dijiye — Haan ya Nahi:", flush=True)  # Simple prompt with no long countdown
+        raw_audio = sd.rec(int(duration * SAMPLE_RATE), samplerate=SAMPLE_RATE, channels=1, dtype='float32', device=device_id)  # Record
+        sd.wait()  # Wait for recording to complete
+        mono = raw_audio.flatten()  # Flatten 2D array to 1D mono signal
+        mono = apply_audio_filter(mono)  # Apply high-pass filter to remove rumble
+        peak = float(np.max(np.abs(mono)))  # Measure peak signal amplitude
+        if peak > 0.0005:  # Check if real audio was detected
+            mono = (mono / peak) * 0.95  # Normalize volume to 95% full scale
+        int16_audio = (mono * 32767.0).astype(np.int16)  # Convert float32 to 16-bit PCM
+        wavfile.write(temp_wav_path, SAMPLE_RATE, int16_audio)  # Write WAV file to disk
+        return temp_wav_path  # Return path to saved WAV file
+    except Exception as rec_err:  # Catch any recording error
+        print(f"[SIO STT] Error during short recording: {rec_err}", flush=True)  # Log error
+        if temp_wav_path and os.path.exists(temp_wav_path):  # Check if partial file exists
+            try:  # Try cleanup
+                os.remove(temp_wav_path)  # Delete partial file
+            except OSError:  # Ignore cleanup errors
+                pass  # Continue
+        return None  # Return None on failure
+
+# Function to transcribe a short yes/no confirmation, always in Hindi            # Description comment
+def transcribe_confirmation(model, wav_path):  # Define confirmation transcription function
+    try:  # Start try block
+        use_fp16 = torch.cuda.is_available()  # Check GPU availability
+        hindi_prompt = "हाँ। नहीं। हां। ठीक है। कर दो। मत करो। जी हाँ।"  # Hindi yes/no context prompt
+        result = model.transcribe(wav_path, language="hi", task="transcribe",  # Force Hindi transcription
+                                  initial_prompt=hindi_prompt, temperature=0.0, fp16=use_fp16)  # Transcription options
+        text = result.get("text", "").strip()  # Extract transcribed text
+        text = post_process_transcription(text)  # Apply post-processing cleanup
+        return text, result.get("language", "hi")  # Return text and detected language
+    except Exception as err:  # Catch any error
+        print(f"[SIO STT] Error transcribing confirmation: {err}", flush=True)  # Log error
+        return None, None  # Return None on failure
+
 # Function to load OpenAI Whisper speech recognition model                       # Description comment
 def load_whisper_model():  # Define Whisper loader function
     try:  # Start try block

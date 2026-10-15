@@ -8,7 +8,9 @@ import sys  # Import sys module for standard runtime configuration
 import sqlite3  # Import sqlite3 module to manage lightweight local relational database
 import datetime  # Import datetime module to generate timestamps for bank ledger records
 import random  # Import random module to generate realistic transaction reference IDs
+import uuid  # Import uuid module for guaranteed globally unique transaction identifiers
 from typing import Dict, Any, List, Optional  # Import type hint annotations for clean signatures
+
 
 # Reconfigure standard output streams to UTF-8 for displaying Hindi and symbols   # Description comment
 if hasattr(sys.stdout, 'reconfigure'):  # Check if stdout supports stream reconfiguration
@@ -154,9 +156,10 @@ init_banking_database()  # Run database initializer
 
 # Helper function to generate unique bank transaction reference number           # Description comment
 def generate_transaction_id() -> str:  # Define transaction ID generator function
-    timestamp_part = datetime.datetime.now().strftime("%Y%m%d%H%M%S")  # Get current timestamp digits
-    random_part = random.randint(100, 999)  # Generate 3-digit random number
-    return f"TXN{timestamp_part}{random_part}"  # Return formatted transaction reference string
+    timestamp_part = datetime.datetime.now().strftime("%Y%m%d%H%M%S")  # Get current timestamp digits for human readability
+    unique_part = uuid.uuid4().hex[:6].upper()  # Generate 6-char globally unique hex suffix to prevent collisions
+    return f"TXN{timestamp_part}{unique_part}"  # Return formatted transaction reference string
+
 
 # Service 1: Balance Enquiry implementation                                      # Description comment
 def check_balance(account_number: str = DEFAULT_ACCOUNT_NUM) -> Dict[str, Any]:  # Define balance checker
